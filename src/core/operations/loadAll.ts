@@ -1,29 +1,37 @@
 import { combineLatest, from, map, Observable, of, pairwise, reduce, scan, skipWhile, Subject } from "rxjs";
-import { IBaseAction } from "../IBaseAction";
+import { IBaseAction, Id } from "../IBaseAction";
 import { DataWithAction, Reducer } from "../Reducer";
 
+export const InitialActionId = Symbol('INITIAL_ACTION')
+const LoadAllBeginActionId = Symbol('LOAD_ALL_BEGIN_ACTION')
+const LoadAllEndActionId = Symbol('LOAD_ALL_END_ACTION')
+
+type InitialAction = IBaseAction<typeof InitialActionId>
+type LoadAllBeginAction = IBaseAction<typeof LoadAllBeginActionId>
+type LoadAllEndAction<TItem> = IBaseAction<typeof LoadAllEndActionId, { items: TItem[] }>
+
 export interface ILoadAllArgs<TItem> {
+    store: Id,
     actions$: Subject<IBaseAction>,
-    initialData: TItem[],
-    initialAction: IBaseAction,
-    beginAction: (() => IBaseAction) | IBaseAction,
-    endAction: ((items: TItem[]) => IBaseAction) | IBaseAction,
+    initialData?: TItem[],
     request: () => Promise<TItem[]>,
     reducer: Reducer<TItem[], IBaseAction>,
 }
 
 export const loadAll = <TItem>({
+    store,
     actions$,
-    initialData,
-    initialAction,
-    beginAction,
-    endAction,
+    initialData = [],
     request,
     reducer,
 }: ILoadAllArgs<TItem>) => {
     const initial: DataWithAction<TItem[], IBaseAction> = {
         data: initialData,
-        action: initialAction,
+        action: {
+            store,
+            id: InitialActionId,
+            payload: null,
+        },
     }
 
     const dataWithAction$: Observable<[TItem[], IBaseAction]> = combineLatest([
@@ -31,7 +39,7 @@ export const loadAll = <TItem>({
         actions$,
     ]);
 
-    const reducer$ = dataWithAction$.pipe(
+    const result$ = dataWithAction$.pipe(
         map(([data, action]) => ({ data, action })),
         scan(reducer, initial),
         pairwise(),
@@ -39,20 +47,33 @@ export const loadAll = <TItem>({
         map(([prev, next]) => next.data),
     )
 
-    if (typeof beginAction === 'function') {
-        actions$.next(beginAction());
-    } else {
-        actions$.next(beginAction);
+
+    const beginAction: LoadAllBeginAction = {
+        store,
+        id: LoadAllBeginActionId,
+        payload: null,
     }
+
+    actions$.next(beginAction);
 
     from(request())
         .subscribe((items) => {
-            if (typeof endAction === 'function') {
-                actions$.next(endAction(items));
-            } else {
-                actions$.next(endAction);
+            const endAction: LoadAllEndAction<TItem> = {
+                store,
+                id: LoadAllEndActionId,
+                payload: { items },
             }
+
+            actions$.next(endAction);
         })
 
-    return reducer$;
+    return result$;
+}
+
+export const isLoadAllBeginAction = (action: IBaseAction): action is LoadAllBeginAction => {
+    return action.id === LoadAllBeginActionId
+}
+
+export const isLoadAllEndAction = <TItem>(action: IBaseAction): action is LoadAllEndAction<TItem> => {
+    return action.id === LoadAllEndActionId
 }

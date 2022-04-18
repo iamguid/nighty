@@ -1,6 +1,7 @@
-export type ActionId = string | number | symbol;
+export type Id = string | number | symbol;
 
-export interface IBaseAction<TId extends ActionId = any, TPayload = any> {
-  id: TId;
+export interface IBaseAction<TActionId extends Id = any, TPayload = any> {
+  store: Id
+  id: TActionId;
   payload: TPayload;
 }

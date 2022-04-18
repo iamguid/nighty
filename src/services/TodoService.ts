@@ -1,21 +1,19 @@
-import { type } from "os";
-import { combineLatest, from, map, Observable, of, pairwise, scan, skipWhile, Subject } from "rxjs";
+import { map, Observable, pairwise, skipWhile, Subject } from "rxjs";
 import { TodoApi } from "../api/TodoApi";
 import { ITodoModel } from "../models/TodoModel";
-
-export type ActionId = string | number | symbol;
-export interface IBaseAction<TId extends ActionId = any, TPayload = null> {
-  id: TId;
-  payload: TPayload;
-}
-
-type DataWithAction<TData, TAction extends IBaseAction<any, any>> = { data: TData, action: TAction }
+import { IBaseAction } from "../core/IBaseAction";
+import { Reducer } from "../core/Reducer";
+import { loadItem } from "../core/operations/loadItem";
+import { addItem } from "../core/operations/addItem";
+import { softDeleteItem } from "../core/operations/softDeleteItem";
+import { updateItem } from "../core/operations/updateItem";
+import { loadAll } from "../core/operations/loadAll";
 
 const InitialActionId = Symbol('INITIAL_ACTION')
-const LoadingTodoBeginActionId = Symbol('LOADING_TODO_BEGIN_ACTION')
-const LoadingTodoEndActionId = Symbol('LOADING_TODO_END_ACTION')
-const LoadingTodosBeginActionId = Symbol('LOADING_TODOS_BEGIN_ACTION')
-const LoadingTodosEndActionId = Symbol('LOADING_TODOS_END_ACTION')
+const LoadTodoBeginActionId = Symbol('LOAD_TODO_BEGIN_ACTION')
+const LoadTodoEndActionId = Symbol('LOAD_TODO_END_ACTION')
+const LoadTodosBeginActionId = Symbol('LOAD_TODOS_BEGIN_ACTION')
+const LoadTodosEndActionId = Symbol('LOAD_TODOS_END_ACTION')
 const UpdateTodoBeginActionId = Symbol('UPDATE_TODO_BEGIN_ACTION');
 const UpdateTodoEndActionId = Symbol('UPDATE_TODO_END_ACTION');
 const DeleteTodoBeginActionId = Symbol('DELETE_TODO_BEGIN_ACTION');
@@ -24,10 +22,10 @@ const AddTodoBeginActionId = Symbol('ADD_TODO_BEGIN_ACTION');
 const AddTodoEndActionId = Symbol('ADD_TODO_END_ACTION');
 
 type InitialAction = IBaseAction<typeof InitialActionId>
-type LoadingTodoBiginAction = IBaseAction<typeof LoadingTodoBeginActionId, { todoId: string }>
-type LoadingTodoEndAction = IBaseAction<typeof LoadingTodoEndActionId, { todo: ITodoModel }>
-type LoadingTodosBeginAction = IBaseAction<typeof LoadingTodosBeginActionId>
-type LoadingTodosEndAction = IBaseAction<typeof LoadingTodosEndActionId, { todos: ITodoModel[] }>
+type LoadTodoBiginAction = IBaseAction<typeof LoadTodoBeginActionId, { todoId: string }>
+type LoadTodoEndAction = IBaseAction<typeof LoadTodoEndActionId, { todo: ITodoModel }>
+type LoadTodosBeginAction = IBaseAction<typeof LoadTodosBeginActionId>
+type LoadTodosEndAction = IBaseAction<typeof LoadTodosEndActionId, { todos: ITodoModel[] }>
 type UpdateTodoBeginAction = IBaseAction<typeof UpdateTodoBeginActionId, { changedTodo: ITodoModel }>
 type UpdateTodoEndAction = IBaseAction<typeof UpdateTodoEndActionId, { updatedTodo: ITodoModel }>
 type DeleteTodoBeginAction = IBaseAction<typeof DeleteTodoBeginActionId, { todoId: string }>
@@ -45,122 +43,99 @@ export class TodoService {
     }
 
     public getAllTodos(): Observable<ITodoModel[]> {
-        const initial: DataWithAction<ITodoModel[], IBaseAction<any, any>> = {
-            data: [],
-            action: { id: InitialActionId, payload: null },
-        }
+        const initialData: ITodoModel[] = [];
+        const initialAction: InitialAction = { id: InitialActionId, payload: null };
 
-        const dataWithAction$ = combineLatest({
-            data: of([] as ITodoModel[]),
-            action: this._actions$,
-        });
-
-        const reducer$ = dataWithAction$.pipe(
-            scan((accum, { data, action }) => {
-                switch (action.id) {
-                    case AddTodoEndActionId:
-                        return { data: [...accum.data, (action as AddTodoEndAction).payload.updatedTodo], action }
-                    case LoadingTodosEndActionId:
-                        return { data: (action as LoadingTodosEndAction).payload.todos, action }
-                    case UpdateTodoEndActionId:
-                    case DeleteTodoEndActionId:
-                        const updatedTodo = (action as UpdateTodoEndAction | DeleteTodoEndAction).payload.updatedTodo;
-                        return { data: accum.data.map(d => d.id! === updatedTodo.id! ? updatedTodo : d), action }
-                }
-
-                return { data: accum.data, action };
-            }, initial),
-            pairwise(),
-            skipWhile(([prev, next]) => prev.data === next.data),
-            map(([prev, next]) => next.data)
-        )
-
-        const beginAction: LoadingTodosBeginAction = {
-            id: LoadingTodosBeginActionId,
+        const beginAction: LoadTodosBeginAction = {
+            id: LoadTodosBeginActionId,
             payload: null,
         }
 
-        this._actions$.next(beginAction);
+        const endAction: (todos: ITodoModel[]) => LoadTodosEndAction = (todos) => {
+            return {
+                id: LoadTodosEndActionId,
+                payload: { todos },
+            }
+        }
 
-        from(this.todoApi.getAllTodos())
-            .subscribe((todos) => {
-                const endAction: LoadingTodosEndAction = {
-                    id: LoadingTodosEndActionId,
-                    payload: { todos },
-                }
+        const reducer: Reducer<ITodoModel[], IBaseAction> = (prev, { data, action }) => {
+            switch (action.id) {
+                case AddTodoEndActionId:
+                    return { data: [...prev.data, (action as AddTodoEndAction).payload.updatedTodo], action }
+                case LoadTodosEndActionId:
+                    return { data: (action as LoadTodosEndAction).payload.todos, action }
+                case UpdateTodoEndActionId:
+                case DeleteTodoEndActionId:
+                    const updatedTodo = (action as UpdateTodoEndAction | DeleteTodoEndAction).payload.updatedTodo;
+                    return { data: prev.data.map(d => d.id! === updatedTodo.id! ? updatedTodo : d), action }
+            }
 
-                this._actions$.next(endAction);
-            })
+            return { data: prev.data, action };
+        }
 
-        return reducer$;
+        return loadAll({
+            actions$: this._actions$,
+            initialData,
+            initialAction,
+            beginAction,
+            endAction,
+            request: this.todoApi.getAllTodos,
+            reducer,
+        })
     }
 
     public getOnlyDoneTodos(): Observable<ITodoModel[]> {
         return this.getAllTodos().pipe(
             map(todos => {
                 return todos.filter(todo => todo.done)
-            })
+            }),
+            pairwise(),
+            skipWhile(([prev, next]) => prev === next),
+            map(([prev, next]) => next)
         )
     }
 
     public getTodoById(id: string): Observable<ITodoModel | null> {
-        const initial: DataWithAction<ITodoModel | null, IBaseAction<any, any>> = {
-            data: null,
-            action: { id: InitialActionId, payload: null },
+        const initialData = null;
+        const initialAction: InitialAction = { id: InitialActionId, payload: null };
+        const beginAction: LoadTodoBiginAction = { id: LoadTodoBeginActionId, payload: { todoId: id } };
+        const endAction: (todo: ITodoModel) => LoadTodoEndAction = (todo) => {
+            return { id: LoadTodoEndActionId, payload: { todo: todo } };
+        };
+
+        const reducer: Reducer<ITodoModel | null, IBaseAction> = (prev, { data, action }) => {
+            switch (action.id) {
+                case LoadTodoEndActionId: {
+                    const typedAction = (action as LoadTodoEndAction);
+                    if (typedAction.payload.todo.id! === id) {
+                        return { data: action.payload.todo, action }
+                    }
+                }
+                    break;
+                case UpdateTodoEndActionId:
+                case DeleteTodoEndActionId: {
+                    const typedAction = (action as UpdateTodoEndAction | DeleteTodoEndAction);
+                    if (typedAction.payload.updatedTodo.id! === id) {
+                        const updatedTodo = typedAction.payload.updatedTodo;
+                        return { data: updatedTodo, action }
+                    }
+                }
+                    break;
+            }
+
+            return { data: prev.data, action };
         }
 
-        const dataWithAction$: Observable<DataWithAction<ITodoModel | null, IBaseAction<any, any>>> = combineLatest({
-            data: of(null),
-            action: this._actions$,
+        return loadItem({
+            id, 
+            actions$: this._actions$,
+            initialData,
+            initialAction,
+            beginAction,
+            endAction,
+            request: this.todoApi.getTodoById,
+            reducer
         });
-
-        const reducer$ = dataWithAction$.pipe(
-            scan((accum, { data, action }) => {
-                switch (action.id) {
-                    case LoadingTodoEndActionId: {
-                        const typedAction = (action as LoadingTodoEndAction);
-                        if (typedAction.payload.todo.id! === id) {
-                            return { data: action.payload.todo, action }
-                        }
-                    }
-                        break;
-                    case UpdateTodoEndActionId:
-                    case DeleteTodoEndActionId: {
-                        const typedAction = (action as UpdateTodoEndAction | DeleteTodoEndAction);
-                        if (typedAction.payload.updatedTodo.id! === id) {
-                            const updatedTodo = typedAction.payload.updatedTodo;
-                            return { data: updatedTodo, action }
-                        }
-                    }
-                        break;
-                }
-
-                return { data: accum.data, action };
-            }, initial),
-
-            map(({ data, action }) => {
-                return data;
-            })
-        )
-
-        const beginAction: LoadingTodoBiginAction = {
-            id: LoadingTodoBeginActionId,
-            payload: { todoId: id },
-        }
-
-        this._actions$.next(beginAction);
-
-        from(this.todoApi.getTodoById(id))
-            .subscribe((todo) => {
-                const endAction: LoadingTodoEndAction = {
-                    id: LoadingTodoEndActionId,
-                    payload: { todo },
-                }
-
-                this._actions$.next(endAction);
-            })
-
-        return reducer$;
     }
 
     public updateTodo(todo: ITodoModel): void {
@@ -169,17 +144,20 @@ export class TodoService {
             payload: { changedTodo: todo },
         }
 
-        this._actions$.next(beginAction);
+        const endAction: (todo: ITodoModel) => UpdateTodoEndAction = (updatedTodo) => {
+            return {
+                id: UpdateTodoEndActionId,
+                payload: { updatedTodo },
+            }
+        }
 
-        from(this.todoApi.updateTodo(todo))
-            .subscribe((updatedTodo) => {
-                const endAction: UpdateTodoEndAction = {
-                    id: UpdateTodoEndActionId,
-                    payload: { updatedTodo },
-                }
-
-                this._actions$.next(endAction);
-            })
+        updateItem({
+            item: todo,
+            actions$: this._actions$,
+            beginAction,
+            endAction,
+            request: this.todoApi.updateTodo,
+        })
     }
 
     public deleteTodo(id: string): void {
@@ -188,17 +166,20 @@ export class TodoService {
             payload: { todoId: id },
         }
 
-        this._actions$.next(beginAction);
+        const endAction: (todo: ITodoModel) => DeleteTodoEndAction = (todo) => {
+            return {
+                id: DeleteTodoEndActionId,
+                payload: { updatedTodo: todo },
+            }
+        }
 
-        from(this.todoApi.deleteTodo(id))
-            .subscribe((updatedTodo) => {
-                const endAction: DeleteTodoEndAction = {
-                    id: DeleteTodoEndActionId,
-                    payload: { updatedTodo },
-                }
-
-                this._actions$.next(endAction);
-            })
+        softDeleteItem({
+            id,
+            actions$: this._actions$,
+            beginAction,
+            endAction,
+            request: this.todoApi.deleteTodo,
+        })
     }
 
     public addTodo(todo: ITodoModel): void {
@@ -207,17 +188,20 @@ export class TodoService {
             payload: { changedTodo: todo },
         }
 
-        this._actions$.next(beginAction);
+        const endAction: (todo: ITodoModel) => AddTodoEndAction = (todo) => {
+            return {
+                id: AddTodoEndActionId,
+                payload: { updatedTodo: todo },
+            }
+        }
 
-        from(this.todoApi.createTodo(todo))
-            .subscribe((updatedTodo) => {
-                const endAction: AddTodoEndAction = {
-                    id: AddTodoEndActionId,
-                    payload: { updatedTodo },
-                }
-
-                this._actions$.next(endAction);
-            })
+        addItem({
+            item: todo,
+            actions$: this._actions$,
+            beginAction,
+            endAction,
+            request: this.todoApi.createTodo,
+        })
     }
 
     public get actions$(): Observable<IBaseAction> {

@@ -9,7 +9,7 @@ export class TodoApi {
         });
     }
 
-    public getTodoById(id: string): Promise<ITodoModel> {
+    public getTodoById = (id: string): Promise<ITodoModel> => {
         console.log('[TODO_API] getTodoById request', id)
         return new Promise((resolve, reject) => {
             setTimeout(() => {
@@ -19,7 +19,7 @@ export class TodoApi {
         });
     }
 
-    public getAllTodos(): Promise<ITodoModel[]> {
+    public getAllTodos = (): Promise<ITodoModel[]> => {
         console.log('[TODO_API] getAllTodos request')
         return new Promise((resolve, reject) => {
             setTimeout(() => {
@@ -29,7 +29,7 @@ export class TodoApi {
         });
     }
 
-    public updateTodo(todo: ITodoModel): Promise<ITodoModel> {
+    public updateTodo = (todo: ITodoModel): Promise<ITodoModel> => {
         console.log('[TODO_API] updateTodo request', todo);
         return new Promise((resolve, reject) => {
             setTimeout(() => {
@@ -40,7 +40,7 @@ export class TodoApi {
         });
     }
 
-    public createTodo(todo: ITodoModel): Promise<ITodoModel> {
+    public createTodo = (todo: ITodoModel): Promise<ITodoModel> => {
         console.log('[TODO_API] createTodo request', todo);
         return new Promise((resolve, reject) => {
             setTimeout(() => {
@@ -51,7 +51,7 @@ export class TodoApi {
         });
     }
 
-    public deleteTodo(id: string): Promise<ITodoModel> {
+    public deleteTodo = (id: string): Promise<ITodoModel> => {
         console.log('[TODO_API] deleteTodo request', id);
 
         return new Promise((resolve, reject) => {

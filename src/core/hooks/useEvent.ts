@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { eventsEmitter } from '../ServiceLocator';
+import { eventsEmitter } from '../../ServiceLocator';
 import { EventId, IBaseEvent } from '../EventEmitter';
 
 export const useEvent = <TPayload>(event: IBaseEvent<TPayload>) => {

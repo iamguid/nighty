@@ -28,12 +28,13 @@ export class TodoService {
     }
 
     public getTodoById$(id: string): Observable<ITodoModel> {
-        return new Observable(subscriber => {
-            subscriber.next();
-        })
+        return this.todos$.pipe(
+            map(todos => todos.find((todo) => todo.id! === id)!),
+        );
     }
 
     public updateTodo$(todo: ITodoModel): Observable<ITodoModel> {
+
         return new Observable(subscriber => {
             subscriber.next();
         })

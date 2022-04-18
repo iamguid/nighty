@@ -26,12 +26,13 @@ export const loadAll = <TItem>({
         action: initialAction,
     }
 
-    const dataWithAction$: Observable<DataWithAction<TItem[], IBaseAction>> = combineLatest({
-        data: of(initialData),
-        action: actions$,
-    });
+    const dataWithAction$: Observable<[TItem[], IBaseAction]> = combineLatest([
+        of(initialData),
+        actions$,
+    ]);
 
     const reducer$ = dataWithAction$.pipe(
+        map(([data, action]) => ({ data, action })),
         scan(reducer, initial),
         pairwise(),
         skipWhile(([prev, next]) => prev.data === next.data),

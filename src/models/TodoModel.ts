@@ -5,6 +5,7 @@ export interface ITodoModel {
     title: string;
     description: string;
     done: boolean;
+    deleted: boolean;
 }
 
 export class TodoModel extends AbstractModel<ITodoModel> implements ITodoModel {
@@ -12,14 +13,16 @@ export class TodoModel extends AbstractModel<ITodoModel> implements ITodoModel {
     public title: string;
     public description: string;
     public done: boolean;
+    public deleted: boolean;
 
-    constructor({ id, title, description, done }: ITodoModel) {
+    constructor({ id, title, description, done, deleted }: ITodoModel) {
         super();
 
         this.id = id;
         this.title = title;
         this.description = description;
         this.done = done;
+        this.deleted = deleted;
     }
 
     public clone = () => {
@@ -28,6 +31,7 @@ export class TodoModel extends AbstractModel<ITodoModel> implements ITodoModel {
             title: this.title,
             description: this.description,
             done: this.done,
+            deleted: this.deleted,
         });
     };
 }

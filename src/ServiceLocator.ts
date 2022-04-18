@@ -4,8 +4,9 @@ import { TodoApi } from './api/TodoApi';
 import { TodoService } from './services/TodoService';
 
 const initialTodos: ITodoModel[] = [
-    { id: '2', title: 'Core library', description: 'Make core library', done: false },
-    { id: '1', title: 'Examples', description: 'Make some jxjs examples', done: false },
+    { id: '1', title: 'Skretch idea', description: 'Skretch idea', deleted: false, done: true },
+    { id: '2', title: 'Core library', description: 'Make core library', deleted: false, done: false },
+    { id: '3', title: 'Examples', description: 'Make some examples', deleted: false, done: false },
 ];
 
 export const eventsEmitter = new EventEmitter(); 

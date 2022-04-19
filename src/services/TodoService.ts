@@ -6,7 +6,7 @@ import { loadSingle } from "../core/operations/loadSingle";
 import { addSingle } from "../core/operations/addSingle";
 import { softDeleteItem } from "../core/operations/softDeleteSingle";
 import { updateItem } from "../core/operations/updateSingle";
-import { loadAll } from "../core/operations/loadAll";
+import { loadMany as loadMany } from "../core/operations/loadMany";
 import { loadPaginatable } from "../core/operations/loadPaginatable";
 import { IAccessor } from "../core/Accessor";
 import { DataWithAction } from "../core/Reducer";
@@ -30,7 +30,7 @@ export class TodoService {
     }
 
     public getAllTodos(): Observable<DataWithAction<ITodoModel[], IBaseAction>> {
-        return loadAll({
+        return loadMany({
             store: todoStoreId,
             accessor: this.accessor,
             actions$: this._actions$,

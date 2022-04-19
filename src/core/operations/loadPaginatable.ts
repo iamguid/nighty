@@ -2,11 +2,10 @@ import { combineLatest, distinctUntilChanged, from, map, merge, Observable, of, 
 import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
 import { append } from "../mutators/append";
-import { update } from "../mutators/update";
-import { DataWithAction, Reducer } from "../Reducer";
+import { whenSoftDeleteSingleEnds } from "../mutators/whenSoftDeleteSingleEnds";
+import { whenUpdateSingleEnds } from "../mutators/whenUpdateSingleEnds";
+import { DataWithAction, mergeReducers, ReduceArray, reducerFromArray, ReducerFunction } from "../Reducer";
 import { isAddSingleBeginAction, isAddSingleEndAction } from "./addSingle";
-import { isSoftDeleteSingleEndAction } from "./softDeleteSingle";
-import { isUpdateSingleEndAction } from "./updateSingle";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadPageBeginActionId = Symbol('LOAD_PAGE_BEGIN_ACTION')
@@ -29,7 +28,7 @@ export interface IPaginatoableArgs<TItem> {
     itemsPerPage: number,
     initialData?: TItem[],
     request: (itemsPerPage: number, pageToken: string) => Promise<IPaginatorResult<TItem>>,
-    reducer?: Reducer<TItem[], IBaseAction> | null,
+    reducer?: ReducerFunction<TItem[], IBaseAction> | null,
 }
 
 export const loadPaginatable = <TItem>({
@@ -42,7 +41,7 @@ export const loadPaginatable = <TItem>({
     request,
     reducer = null,
 }: IPaginatoableArgs<TItem>): Observable<DataWithAction<TItem[], IBaseAction>> => {
-    const initial: DataWithAction<TItem[], IBaseAction> = {
+    const initial: DataWithAction<TItem[], InitialAction> = {
         data: initialData,
         action: {
             store,
@@ -56,7 +55,7 @@ export const loadPaginatable = <TItem>({
         actions$,
     ]);
 
-    const defaultReducer: Reducer<TItem[], IBaseAction> = (prev, { data, action }) => {
+    const paginatorReducer: ReducerFunction<TItem[], IBaseAction> = (prev, { data, action }) => {
         if (isLoadPageEndAction<TItem>(action)) {
             return { data: append(data, action.payload.items), action }
         }
@@ -69,17 +68,19 @@ export const loadPaginatable = <TItem>({
             paginator$.next();
         }
 
-        if (isUpdateSingleEndAction<TItem>(action) || isSoftDeleteSingleEndAction<TItem>(action)) {
-            const updatedItem = action.payload.updatedItem;
-            return { data: update(data, action.payload.updatedItem, accessor.getId), action }
-        }
-
-        return { data: prev.data, action };
+        return { data, action };
     }
+
+    const defaultReduceArray: ReduceArray<TItem[], IBaseAction> = [
+        whenUpdateSingleEnds(accessor.getId),
+        whenSoftDeleteSingleEnds(accessor.getId),
+    ]
+
+    const resultReducer = mergeReducers(paginatorReducer, reducerFromArray(defaultReduceArray))
 
     const reducer$ = dataWithAction$.pipe(
         map(([data, action]) => ({ data, action })),
-        scan(reducer || defaultReducer, initial),
+        scan(reducer || resultReducer, initial),
         distinctUntilChanged((prev, next) => prev.data === next.data),
     )
 

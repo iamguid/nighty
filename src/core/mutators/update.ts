@@ -1,4 +1,4 @@
-export const update = <TItem>(target: TItem[], updated: TItem | TItem[], idGetter: (item: TItem) => string) => {
+export const update = <TItem>(target: TItem[], updated: TItem | TItem[], idGetter: (item: TItem) => string): TItem[] => {
     if (Array.isArray(updated)) {
         return target.map(i => {
             const targetId = idGetter(i);

@@ -1,15 +1,9 @@
-import { combineLatest, distinctUntilChanged, from, map, Observable, of, scan, skipWhile, Subject } from "rxjs";
+import { combineLatest, distinctUntilChanged, from, map, Observable, of, scan, Subject } from "rxjs";
 import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
-import { append } from "../mutators/append";
-import { update } from "../mutators/update";
 import { DataWithAction, Reducer, makeScanFromReducer } from "../Reducer";
 import { isAddSingleBeginAction, isAddSingleEndAction } from "./addSingle";
-import { isLoadAllEndAction } from "./loadAll";
-import { isLoadBatchEndAction } from "./loadBatch";
-import { isLoadSingleEndAction } from "./loadSingle";
-import { isSoftDeleteSingleEndAction } from "./softDeleteSingle";
-import { isUpdateSingleEndAction } from "./updateSingle";
+import { commit } from "../store/commit";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadPageBeginActionId = Symbol('LOAD_PAGE_BEGIN_ACTION')
@@ -30,7 +24,6 @@ export interface IPaginatoableArgs<TItem> {
     actions$: Subject<IBaseAction>,
     paginator$: Subject<void>,
     itemsPerPage: number,
-    initialData?: TItem[],
     request: (itemsPerPage: number, pageToken: string) => Promise<IPaginatorResult<TItem>>,
 }
 
@@ -40,10 +33,11 @@ export const loadPaginatable = <TItem>({
     actions$,
     paginator$,
     itemsPerPage,
-    initialData = [],
     request,
-}: IPaginatoableArgs<TItem>): Observable<DataWithAction<TItem[], IBaseAction>> => {
-    const initial: DataWithAction<TItem[], InitialAction> = {
+}: IPaginatoableArgs<TItem>): Observable<Subject<TItem>[]> => {
+    const initialData: Subject<TItem>[] = [];
+
+    const initial: DataWithAction<Subject<TItem>[], InitialAction> = {
         data: initialData,
         action: {
             topicId,
@@ -52,14 +46,14 @@ export const loadPaginatable = <TItem>({
         },
     }
 
-    const dataWithAction$: Observable<[TItem[], IBaseAction]> = combineLatest([
+    const dataWithAction$: Observable<[Subject<TItem>[], IBaseAction]> = combineLatest([
         of(initialData),
         actions$,
     ]);
 
-    const reducer: Reducer<TItem[], IBaseAction> = (prev, { data, action }) => {
+    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, { data, action }) => {
         if (isLoadPageEndAction<TItem>(action)) {
-            return append(data, action.payload.items);
+            return [...data, ...commit({ updated: action.payload.items, accessor })];
         }
 
         if (isAddSingleBeginAction<TItem>(action)) {
@@ -70,24 +64,6 @@ export const loadPaginatable = <TItem>({
             paginator$.next();
         }
 
-        if (
-            isUpdateSingleEndAction<TItem>(action) ||
-            isSoftDeleteSingleEndAction<TItem>(action)
-        ) {
-            return update(data, action.payload.updatedItem, accessor.getId);
-        }
-
-        if (
-            isLoadAllEndAction<TItem>(action) ||
-            isLoadBatchEndAction<TItem>(action)
-        ) {
-            return update(data, action.payload.items, accessor.getId);
-        }
-
-        if (isLoadSingleEndAction<TItem>(action)) {
-            return update(data, action.payload.item, accessor.getId);
-        }
-
         return data;
     }
 
@@ -95,6 +71,7 @@ export const loadPaginatable = <TItem>({
         map(([data, action]) => ({ data, action })),
         scan(makeScanFromReducer(reducer), initial),
         distinctUntilChanged((prev, next) => prev.data === next.data),
+        map(({ data, action }) => data),
     )
 
     let pageToken = '';

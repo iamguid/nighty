@@ -15,11 +15,11 @@ import { todoService } from "./ServiceLocator";
 todoService.actions$.subscribe(action => console.info('Action fired', action));
 
 const allTodos$ = todoService.getAllTodos();
-const onlyDoneTodos$ = todoService.getOnlyDoneTodos();
+// const onlyDoneTodos$ = todoService.getOnlyDoneTodos();
 const firstTodo$ = todoService.getTodoById('1');
 
 allTodos$.subscribe(todos => console.info('allTodos$ updated', todos));
-onlyDoneTodos$.subscribe(todos => console.info('onlyDoneTodos$ updated', todos));
+// onlyDoneTodos$.subscribe(todos => console.info('onlyDoneTodos$ updated', todos));
 firstTodo$.subscribe(todo => console.info('firstTodo$ updated', todo));
 
 todoService.addTodo({ 

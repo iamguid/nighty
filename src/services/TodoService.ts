@@ -13,7 +13,7 @@ import { DataWithAction } from "../core/Reducer";
 
 export class TodoService {
     private todoApi: TodoApi;
-    private store: Map<string, Observable<ITodoModel>> = new Map(); // key - todoId
+    private store: Map<string, Subject<ITodoModel>> = new Map(); // key - todoId
     private _actions$: Subject<IBaseAction<any, any>> = new Subject();
     private accessor: IAccessor<ITodoModel>;
 
@@ -24,10 +24,11 @@ export class TodoService {
             getId: this.todoIdGetter,
             get: this.todoGetter,
             set: this.todoSetter,
+            delete: this.todoDeleter,
         }
     }
 
-    public getAllTodos(): Observable<DataWithAction<ITodoModel[], IBaseAction>> {
+    public getAllTodos(): Observable<Observable<ITodoModel>[]> {
         return loadAll({
             topicId: Symbol('getAllTodos'),
             accessor: this.accessor,
@@ -36,7 +37,7 @@ export class TodoService {
         })
     }
 
-    public getTodosPaginator(itemsPerPage: number): [Subject<void>, Observable<DataWithAction<ITodoModel[], IBaseAction>>] {
+    public getTodosPaginator(itemsPerPage: number): [Subject<void>, Observable<Observable<ITodoModel>[]>] {
         const paginator$ = new Subject<void>();
 
         const result$ = loadPaginatable({
@@ -51,14 +52,14 @@ export class TodoService {
         return [paginator$, result$]
     }
 
-    public getOnlyDoneTodos(): Observable<DataWithAction<ITodoModel[], IBaseAction>> {
-        return this.getAllTodos().pipe(
-            map(({ data, action }) => ({ data: data.filter(todo => todo.done), action })),
-            distinctUntilChanged(({ data: prevData }, { data: nextData }) => prevData === nextData),
-        )
-    }
+    // public getOnlyDoneTodos(): Observable<Observable<ITodoModel>[]> {
+    //     return this.getAllTodos().pipe(
+    //         map(data => data.filter(todo => todo)),
+    //         distinctUntilChanged(({ data: prevData }, { data: nextData }) => prevData === nextData),
+    //     )
+    // }
 
-    public getTodoById(id: string): Observable<DataWithAction<ITodoModel | null, IBaseAction>> {
+    public getTodoById(id: string): Observable<Observable<ITodoModel> | null> {
         return loadSingle({
             topicId: Symbol('getTodoById'),
             accessor: this.accessor,
@@ -71,6 +72,7 @@ export class TodoService {
     public updateTodo(todo: ITodoModel): void {
         updateItem({
             topicId: Symbol('updateTodo'),
+            accessor: this.accessor,
             changedItem: todo,
             actions$: this._actions$,
             request: this.todoApi.updateTodo,
@@ -80,6 +82,7 @@ export class TodoService {
     public deleteTodo(id: string): void {
         softDeleteItem({
             topicId: Symbol('deleteTodo'),
+            accessor: this.accessor,
             id,
             actions$: this._actions$,
             request: this.todoApi.deleteTodo,
@@ -89,6 +92,7 @@ export class TodoService {
     public addTodo(todo: ITodoModel): void {
         addSingle({
             topicId: Symbol('addTodo'),
+            accessor: this.accessor,
             changedItem: todo,
             actions$: this._actions$,
             request: this.todoApi.createTodo,
@@ -103,11 +107,15 @@ export class TodoService {
         return todo.id!;
     }
 
-    private todoGetter = (id: string): Observable<ITodoModel> | null => {
+    private todoGetter = (id: string): Subject<ITodoModel> | null => {
         return this.store.get(id) || null;
     }
 
-    private todoSetter = (id: string, todo: Observable<ITodoModel>): void => {
+    private todoSetter = (id: string, todo: Subject<ITodoModel>): void => {
         this.store.set(id, todo);
+    }
+
+    private todoDeleter = (id: string): void => {
+        this.store.delete(id);
     }
 }

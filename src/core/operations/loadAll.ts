@@ -1,14 +1,14 @@
 import { combineLatest, distinctUntilChanged, from, map, Observable, of, scan, skipWhile, Subject } from "rxjs";
 import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
-import { apply } from "../mutators/apply";
+import { commit } from "../store/commit";
 import { DataWithAction, Reducer, makeScanFromReducer } from "../Reducer";
 import { isAddSingleEndAction } from "./addSingle";
 import { isLoadBatchEndAction } from "./loadBatch";
 import { isLoadPageEndAction } from "./loadPaginatable";
-import { isLoadSingleEndAction } from "./loadSingle";
 import { isSoftDeleteSingleEndAction } from "./softDeleteSingle";
-import { isUpdateSingleEndAction } from "./updateSingle";
+import { isUpdateSingleEndAction, updateItem } from "./updateSingle";
+import { append } from "../store/append";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadAllBeginActionId = Symbol('LOAD_ALL_BEGIN_ACTION')
@@ -22,7 +22,6 @@ export interface ILoadAllArgs<TItem> {
     topicId: Id,
     accessor: IAccessor<TItem>,
     actions$: Subject<IBaseAction>,
-    initialData?: TItem[],
     request: () => Promise<TItem[]>,
 }
 
@@ -30,10 +29,11 @@ export const loadAll = <TItem>({
     topicId,
     accessor,
     actions$,
-    initialData = [],
     request,
-}: ILoadAllArgs<TItem>): Observable<DataWithAction<TItem[], IBaseAction>> => {
-    const initial: DataWithAction<TItem[], InitialAction> = {
+}: ILoadAllArgs<TItem>): Observable<Observable<TItem>[]> => {
+    const initialData: Subject<TItem>[] = [];
+
+    const initial: DataWithAction<Subject<TItem>[], InitialAction> = {
         data: initialData,
         action: {
             topicId,
@@ -42,30 +42,18 @@ export const loadAll = <TItem>({
         },
     }
 
-    const dataWithAction$: Observable<[TItem[], IBaseAction]> = combineLatest([
+    const dataWithAction$: Observable<[Subject<TItem>[], IBaseAction]> = combineLatest([
         of(initialData),
         actions$,
     ]);
 
-    const reducer: Reducer<TItem[], IBaseAction> = (prev, { data, action }) => {
-        if (isLoadSingleEndAction<TItem>(action)) {
-            return apply(data, action.payload.item, accessor.getId);
+    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, { data, action }) => {
+        if (isLoadAllEndAction<TItem>(action)) {
+            return commit({ updated: action.payload.items, accessor });
         }
 
-        if (
-            isLoadAllEndAction<TItem>(action) ||
-            isLoadBatchEndAction<TItem>(action) || 
-            isLoadPageEndAction<TItem>(action)
-        ) {
-            return apply(data, action.payload.items, accessor.getId);
-        }
-
-        if (
-            isAddSingleEndAction<TItem>(action) || 
-            isUpdateSingleEndAction<TItem>(action) || 
-            isSoftDeleteSingleEndAction<TItem>(action)
-        ) {
-            return apply(data, action.payload.updatedItem, accessor.getId);
+        if (isAddSingleEndAction<TItem>(action)) {
+            return append({ target: data, append: [action.payload.updatedItem], accessor });
         }
 
         return data
@@ -75,6 +63,7 @@ export const loadAll = <TItem>({
         map(([data, action]) => ({ data, action })),
         scan(makeScanFromReducer(reducer), initial),
         distinctUntilChanged((prev, next) => prev.data === next.data),
+        map(({ data, action }) => data),
     )
 
     const beginAction: LoadAllBeginAction = {

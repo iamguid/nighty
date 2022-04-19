@@ -25,7 +25,7 @@ export interface IPaginatorResult<TItem> {
 }
 
 export interface IPaginatoableArgs<TItem> {
-    store: Id,
+    topicId: Id,
     accessor: IAccessor<TItem>
     actions$: Subject<IBaseAction>,
     paginator$: Subject<void>,
@@ -35,7 +35,7 @@ export interface IPaginatoableArgs<TItem> {
 }
 
 export const loadPaginatable = <TItem>({
-    store,
+    topicId,
     accessor,
     actions$,
     paginator$,
@@ -46,8 +46,8 @@ export const loadPaginatable = <TItem>({
     const initial: DataWithAction<TItem[], InitialAction> = {
         data: initialData,
         action: {
-            store,
-            id: InitialActionId,
+            topicId,
+            actionId: InitialActionId,
             payload: null,
         },
     }
@@ -92,7 +92,6 @@ export const loadPaginatable = <TItem>({
     }
 
     const reducer$ = dataWithAction$.pipe(
-        skipWhile(([data, action]) => action.store !== store),
         map(([data, action]) => ({ data, action })),
         scan(makeScanFromReducer(reducer), initial),
         distinctUntilChanged((prev, next) => prev.data === next.data),
@@ -102,8 +101,8 @@ export const loadPaginatable = <TItem>({
 
     paginator$.subscribe(() => {
         const beginAction: LoadPageBeginAction = {
-            store,
-            id: LoadPageBeginActionId,
+            topicId,
+            actionId: LoadPageBeginActionId,
             payload: { itemsPerPage, currentPageToken: pageToken }
         }
 
@@ -113,8 +112,8 @@ export const loadPaginatable = <TItem>({
             pageToken = result.nextPageToken;
 
             const endAction: LoadPageEndAction<TItem> = {
-                store,
-                id: LoadPageEndActionId,
+                topicId,
+                actionId: LoadPageEndActionId,
                 payload: { items: result.data, nextPageToken: pageToken }
             }
 
@@ -126,9 +125,9 @@ export const loadPaginatable = <TItem>({
 }
 
 export const isLoadPageBeginAction = (action: IBaseAction): action is LoadPageBeginAction => {
-    return action.id === LoadPageBeginActionId
+    return action.actionId === LoadPageBeginActionId
 }
 
 export const isLoadPageEndAction = <TItem>(action: IBaseAction): action is LoadPageEndAction<TItem> => {
-    return action.id === LoadPageEndActionId
+    return action.actionId === LoadPageEndActionId
 }

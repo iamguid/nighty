@@ -8,21 +8,21 @@ type SoftDeleteSingleBeginAction = IBaseAction<typeof SoftDeleteSingleBeginActio
 type SoftDeleteSingleEndAction<TItem> = IBaseAction<typeof SoftDeleteSingleEndActionId, { updatedItem: TItem }>
 
 export interface ISoftDeleteItemArgs<TItem> {
-    store: Id,
+    topicId: Id,
     id: string,
     actions$: Subject<IBaseAction>,
     request: (id: string) => Promise<TItem>,
 }
 
 export const softDeleteItem = <TItem>({
-    store,
+    topicId,
     id,
     actions$,
     request,
 }: ISoftDeleteItemArgs<TItem>) => {
     const beginAction: SoftDeleteSingleBeginAction = {
-        store,
-        id: SoftDeleteSingleBeginActionId,
+        topicId,
+        actionId: SoftDeleteSingleBeginActionId,
         payload: { itemId: id }
     }
 
@@ -31,8 +31,8 @@ export const softDeleteItem = <TItem>({
     from(request(id))
         .subscribe((updatedItem) => {
             const endAction: SoftDeleteSingleEndAction<TItem> = {
-                store,
-                id: SoftDeleteSingleEndActionId,
+                topicId,
+                actionId: SoftDeleteSingleEndActionId,
                 payload: { updatedItem }
             }
 
@@ -41,9 +41,9 @@ export const softDeleteItem = <TItem>({
 }
 
 export const isSoftDeleteSingleBeginAction = (action: IBaseAction): action is SoftDeleteSingleBeginAction => {
-    return action.id === SoftDeleteSingleBeginActionId
+    return action.actionId === SoftDeleteSingleBeginActionId
 }
 
 export const isSoftDeleteSingleEndAction = <TItem>(action: IBaseAction): action is SoftDeleteSingleEndAction<TItem> => {
-    return action.id === SoftDeleteSingleEndActionId
+    return action.actionId === SoftDeleteSingleEndActionId
 }

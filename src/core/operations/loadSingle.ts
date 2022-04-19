@@ -18,7 +18,7 @@ type LoadSingleBeginAction = IBaseAction<typeof LoadSingleBeginActionId, { itemI
 type LoadSingleEndAction<TItem> = IBaseAction<typeof LoadSingleEndActionId, { item: TItem }>
 
 export interface ILoadSingleArgs<TItem> {
-    store: Id,
+    topicId: Id,
     accessor: IAccessor<TItem>,
     id: string,
     actions$: Subject<IBaseAction>,
@@ -27,7 +27,7 @@ export interface ILoadSingleArgs<TItem> {
 }
 
 export const loadSingle = <TItem>({
-    store,
+    topicId,
     accessor,
     id,
     actions$,
@@ -37,8 +37,8 @@ export const loadSingle = <TItem>({
     const initial: DataWithAction<TItem[], InitialAction> = {
         data: initialData,
         action: {
-            store,
-            id: InitialActionId,
+            topicId,
+            actionId: InitialActionId,
             payload: null
         },
     }
@@ -74,7 +74,6 @@ export const loadSingle = <TItem>({
     }
 
     const result$ = dataWithAction$.pipe(
-        skipWhile(([data, action]) => action.store !== store),
         map(([data, action]) => ({ data, action })),
         scan(makeScanFromReducer(reducer), initial),
         map(({data, action}) => ({ data: data[0] || null, action })),
@@ -82,8 +81,8 @@ export const loadSingle = <TItem>({
     )
 
     const beginAction: LoadSingleBeginAction = {
-        store,
-        id: LoadSingleBeginActionId,
+        topicId,
+        actionId: LoadSingleBeginActionId,
         payload: { itemId: id }
     }
 
@@ -92,8 +91,8 @@ export const loadSingle = <TItem>({
     from(request(id))
         .subscribe((item) => {
             const endAction: LoadSingleEndAction<TItem> = {
-                store,
-                id: LoadSingleEndActionId,
+                topicId,
+                actionId: LoadSingleEndActionId,
                 payload: { item }
             }
 
@@ -104,9 +103,9 @@ export const loadSingle = <TItem>({
 }
 
 export const isLoadSingleBeginAction = (action: IBaseAction): action is LoadSingleBeginAction => {
-    return action.id === LoadSingleBeginActionId
+    return action.actionId === LoadSingleBeginActionId
 }
 
 export const isLoadSingleEndAction = <TItem>(action: IBaseAction): action is LoadSingleEndAction<TItem> => {
-    return action.id === LoadSingleEndActionId
+    return action.actionId === LoadSingleEndActionId
 }

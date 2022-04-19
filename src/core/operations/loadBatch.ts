@@ -21,7 +21,7 @@ export type LoadBatchEndAction<TItem> = IBaseAction<typeof LoadBatchEndActionId,
 
 export interface ILoadBatchArgs<TItem> {
     ids: string[],
-    store: Id,
+    topicId: Id,
     accessor: IAccessor<TItem>,
     actions$: Subject<IBaseAction>,
     initialData?: TItem[],
@@ -29,7 +29,7 @@ export interface ILoadBatchArgs<TItem> {
 }
 
 export const loadBatch = <TItem>({
-    store,
+    topicId,
     ids,
     accessor,
     actions$,
@@ -39,8 +39,8 @@ export const loadBatch = <TItem>({
     const initial: DataWithAction<TItem[], InitialAction> = {
         data: initialData,
         action: {
-            store,
-            id: InitialActionId,
+            topicId: topicId,
+            actionId: InitialActionId,
             payload: null,
         },
     }
@@ -78,15 +78,14 @@ export const loadBatch = <TItem>({
     }
 
     const result$ = dataWithAction$.pipe(
-        skipWhile(([data, action]) => action.store !== store),
         map(([data, action]) => ({ data, action })),
         scan(makeScanFromReducer(reducer), initial),
         distinctUntilChanged((prev, next) => prev.data === next.data),
     )
 
     const beginAction: LoadBatchBeginAction = {
-        store,
-        id: LoadBatchBeginActionId,
+        topicId,
+        actionId: LoadBatchBeginActionId,
         payload: null,
     }
 
@@ -95,8 +94,8 @@ export const loadBatch = <TItem>({
     from(request(ids))
         .subscribe((items) => {
             const endAction: LoadBatchEndAction<TItem> = {
-                store,
-                id: LoadBatchEndActionId,
+                topicId,
+                actionId: LoadBatchEndActionId,
                 payload: { items },
             }
 
@@ -107,9 +106,9 @@ export const loadBatch = <TItem>({
 }
 
 export const isLoadBatchBeginAction = (action: IBaseAction): action is LoadBatchBeginAction => {
-    return action.id === LoadBatchBeginActionId
+    return action.actionId === LoadBatchBeginActionId
 }
 
 export const isLoadBatchEndAction = <TItem>(action: IBaseAction): action is LoadBatchEndAction<TItem> => {
-    return action.id === LoadBatchEndActionId
+    return action.actionId === LoadBatchEndActionId
 }

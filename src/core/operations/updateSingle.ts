@@ -8,21 +8,21 @@ type UpdateSingleBeginAction<TItem> = IBaseAction<typeof UpdateSingleBeginAction
 type UpdateSingleEndAction<TItem> = IBaseAction<typeof UpdateSingleEndActionId, { updatedItem: TItem }>
 
 export interface IUpdateSingleArgs<TItem> {
-    store: Id,
+    topicId: Id,
     changedItem: TItem,
     actions$: Subject<IBaseAction>,
     request: (item: TItem) => Promise<TItem>,
 }
 
 export const updateItem = <TItem>({
-    store,
+    topicId,
     changedItem,
     actions$,
     request,
 }: IUpdateSingleArgs<TItem>) => {
     const beginAction: UpdateSingleBeginAction<TItem> = {
-        store,
-        id: UpdateSingleBeginActionId,
+        topicId,
+        actionId: UpdateSingleBeginActionId,
         payload: { changedItem }
     }
 
@@ -31,8 +31,8 @@ export const updateItem = <TItem>({
     from(request(changedItem))
         .subscribe((updatedItem) => {
             const endAction: UpdateSingleEndAction<TItem> = {
-                store,
-                id: UpdateSingleEndActionId,
+                topicId,
+                actionId: UpdateSingleEndActionId,
                 payload: { updatedItem }
             }
 
@@ -41,9 +41,9 @@ export const updateItem = <TItem>({
 }
 
 export const isUpdateSingleBeginAction = <TItem>(action: IBaseAction): action is UpdateSingleBeginAction<TItem> => {
-    return action.id === UpdateSingleBeginActionId
+    return action.actionId === UpdateSingleBeginActionId
 }
 
 export const isUpdateSingleEndAction = <TItem>(action: IBaseAction): action is UpdateSingleEndAction<TItem> => {
-    return action.id === UpdateSingleEndActionId
+    return action.actionId === UpdateSingleEndActionId
 }

@@ -1,6 +1,8 @@
+import { Observable } from "rxjs";
+
 export type ItemIdGetter<TItem> = (item: TItem) => string;
-export type ItemGetter<TItem> = (id: string) => TItem;
-export type ItemSetter<TItem> = (item: TItem) => void;
+export type ItemGetter<TItem> = (id: string) => Observable<TItem> | null;
+export type ItemSetter<TItem> = (id: string, item: Observable<TItem>) => void;
 
 export interface IAccessor<TItem> {
     get: ItemGetter<TItem>,

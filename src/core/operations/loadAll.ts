@@ -19,7 +19,7 @@ export type LoadAllBeginAction = IBaseAction<typeof LoadAllBeginActionId>
 export type LoadAllEndAction<TItem> = IBaseAction<typeof LoadAllEndActionId, { items: TItem[] }>
 
 export interface ILoadAllArgs<TItem> {
-    store: Id,
+    topicId: Id,
     accessor: IAccessor<TItem>,
     actions$: Subject<IBaseAction>,
     initialData?: TItem[],
@@ -27,7 +27,7 @@ export interface ILoadAllArgs<TItem> {
 }
 
 export const loadAll = <TItem>({
-    store,
+    topicId,
     accessor,
     actions$,
     initialData = [],
@@ -36,8 +36,8 @@ export const loadAll = <TItem>({
     const initial: DataWithAction<TItem[], InitialAction> = {
         data: initialData,
         action: {
-            store,
-            id: InitialActionId,
+            topicId,
+            actionId: InitialActionId,
             payload: null,
         },
     }
@@ -72,15 +72,14 @@ export const loadAll = <TItem>({
     }
 
     const result$ = dataWithAction$.pipe(
-        skipWhile(([data, action]) => action.store !== store),
         map(([data, action]) => ({ data, action })),
         scan(makeScanFromReducer(reducer), initial),
         distinctUntilChanged((prev, next) => prev.data === next.data),
     )
 
     const beginAction: LoadAllBeginAction = {
-        store,
-        id: LoadAllBeginActionId,
+        topicId,
+        actionId: LoadAllBeginActionId,
         payload: null,
     }
 
@@ -89,8 +88,8 @@ export const loadAll = <TItem>({
     from(request())
         .subscribe((items) => {
             const endAction: LoadAllEndAction<TItem> = {
-                store,
-                id: LoadAllEndActionId,
+                topicId,
+                actionId: LoadAllEndActionId,
                 payload: { items },
             }
 
@@ -101,9 +100,9 @@ export const loadAll = <TItem>({
 }
 
 export const isLoadAllBeginAction = (action: IBaseAction): action is LoadAllBeginAction => {
-    return action.id === LoadAllBeginActionId
+    return action.actionId === LoadAllBeginActionId
 }
 
 export const isLoadAllEndAction = <TItem>(action: IBaseAction): action is LoadAllEndAction<TItem> => {
-    return action.id === LoadAllEndActionId
+    return action.actionId === LoadAllEndActionId
 }

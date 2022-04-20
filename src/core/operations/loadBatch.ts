@@ -6,12 +6,12 @@ import { DataWithAction, Reducer, makeScanFromReducer } from "../Reducer";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadBatchBeginActionId = Symbol('LOAD_BATCH_BEGIN_ACTION')
-export const LoadBatchCompleteActionId = Symbol('LOAD_BATCH_COMPLETE_ACTION')
+export const LoadBatchSuccessActionId = Symbol('LOAD_BATCH_SUCCESS_ACTION')
 export const LoadBatchFailActionId = Symbol('LOAD_BATCH_FAIL_ACTION')
 
 export type InitialAction = IBaseAction<typeof InitialActionId>
 export type LoadBatchBeginAction = IBaseAction<typeof LoadBatchBeginActionId>
-export type LoadBatchCompleteAction<TItem> = IBaseAction<typeof LoadBatchCompleteActionId, { items: TItem[] }>
+export type LoadBatchSuccessAction<TItem> = IBaseAction<typeof LoadBatchSuccessActionId, { items: TItem[] }>
 export type LoadBatchFailAction<TError> = IBaseAction<typeof LoadBatchFailActionId, { error: TError }>
 
 export interface ILoadBatchArgs<TItem> {
@@ -41,7 +41,7 @@ export const loadBatch = <TItem>({
     }
 
     const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isLoadBatchCompleteAction<TItem>(action) && action.topicId === topicId) {
+        if (isLoadBatchSuccessAction<TItem>(action) && action.topicId === topicId) {
             return commit({ updated: action.payload.items, accessor });
         }
 
@@ -65,9 +65,9 @@ export const loadBatch = <TItem>({
     from(request(ids))
         .subscribe({
             next: (items) => {
-                const endAction: LoadBatchCompleteAction<TItem> = {
+                const endAction: LoadBatchSuccessAction<TItem> = {
                     topicId,
-                    actionId: LoadBatchCompleteActionId,
+                    actionId: LoadBatchSuccessActionId,
                     payload: { items },
                 }
 
@@ -91,8 +91,8 @@ export const isLoadBatchBeginAction = (action: IBaseAction): action is LoadBatch
     return action.actionId === LoadBatchBeginActionId
 }
 
-export const isLoadBatchCompleteAction = <TItem>(action: IBaseAction): action is LoadBatchCompleteAction<TItem> => {
-    return action.actionId === LoadBatchCompleteActionId
+export const isLoadBatchSuccessAction = <TItem>(action: IBaseAction): action is LoadBatchSuccessAction<TItem> => {
+    return action.actionId === LoadBatchSuccessActionId
 }
 
 export const isLoadBatchFailAction = <TItem>(action: IBaseAction): action is LoadBatchFailAction<TItem> => {

@@ -1,18 +1,18 @@
-import { BehaviorSubject, combineLatest, distinctUntilChanged, from, map, Observable, of, scan, Subject } from "rxjs";
+import { BehaviorSubject, distinctUntilChanged, from, map, Observable, scan, Subject } from "rxjs";
 import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
 import { DataWithAction, Reducer, makeScanFromReducer } from "../Reducer";
-import { isAddSingleBeginAction, isAddSingleEndAction } from "./addSingle";
+import { isAddSingleBeginAction, isAddSingleSuccessAction } from "./addSingle";
 import { commit } from "../store/commit";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadPageBeginActionId = Symbol('LOAD_PAGE_BEGIN_ACTION')
-export const LoadPageCompleteActionId = Symbol('LOAD_PAGE_COMPLETE_ACTION')
+export const LoadPageSuccessActionId = Symbol('LOAD_PAGE_SUCCESS_ACTION')
 export const LoadPageFailActionId = Symbol('LOAD_PAGE_FAIL_ACTION')
 
 type InitialAction = IBaseAction<typeof InitialActionId>
 type LoadPageBeginAction = IBaseAction<typeof LoadPageBeginActionId, { itemsPerPage: number, currentPageToken: string }>
-type LoadPageCompleteAction<TItem> = IBaseAction<typeof LoadPageCompleteActionId, { items: TItem[], nextPageToken: string }>
+type LoadPageSuccessAction<TItem> = IBaseAction<typeof LoadPageSuccessActionId, { items: TItem[], nextPageToken: string }>
 type LoadPageFailAction<TError> = IBaseAction<typeof LoadPageFailActionId, { currentPageToken: string, error: TError }>
 
 export interface IPaginatorResult<TItem> {
@@ -49,7 +49,7 @@ export const loadPaginatable = <TItem>({
     }
 
     const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isLoadPageCompleteAction<TItem>(action)) {
+        if (isLoadPageSuccessAction<TItem>(action)) {
             return [...prev.data, ...commit({ updated: action.payload.items, accessor })];
         }
 
@@ -57,7 +57,7 @@ export const loadPaginatable = <TItem>({
             return [];
         }
 
-        if (isAddSingleEndAction<TItem>(action)) {
+        if (isAddSingleSuccessAction<TItem>(action)) {
             paginator$.next();
         }
 
@@ -85,9 +85,9 @@ export const loadPaginatable = <TItem>({
             next: (result) => {
                 pageToken = result.nextPageToken;
 
-                const endAction: LoadPageCompleteAction<TItem> = {
+                const endAction: LoadPageSuccessAction<TItem> = {
                     topicId,
-                    actionId: LoadPageCompleteActionId,
+                    actionId: LoadPageSuccessActionId,
                     payload: { items: result.data, nextPageToken: pageToken }
                 }
 
@@ -112,8 +112,8 @@ export const isLoadPageBeginAction = (action: IBaseAction): action is LoadPageBe
     return action.actionId === LoadPageBeginActionId
 }
 
-export const isLoadPageCompleteAction = <TItem>(action: IBaseAction): action is LoadPageCompleteAction<TItem> => {
-    return action.actionId === LoadPageCompleteActionId
+export const isLoadPageSuccessAction = <TItem>(action: IBaseAction): action is LoadPageSuccessAction<TItem> => {
+    return action.actionId === LoadPageSuccessActionId
 }
 
 export const isLoadPageFailAction = <TItem>(action: IBaseAction): action is LoadPageFailAction<TItem> => {

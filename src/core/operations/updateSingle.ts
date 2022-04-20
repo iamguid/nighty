@@ -6,14 +6,14 @@ import { commit } from "../store/commit";
 
 const InitialActionId = Symbol('INITIAL_ACTION')
 const UpdateSingleBeginActionId = Symbol('UPDATE_SINGLE_BEGIN_ACTION');
+const UpdateSingleSuccessActionId = Symbol('UPDATE_SINGLE_SUCCESS_ACTION');
 const UpdateSingleCommitActionId = Symbol('UPDATE_SINGLE_COMMIT_ACTION');
-const UpdateSingleCompleteActionId = Symbol('UPDATE_SINGLE_COMPLETE_ACTION');
 const UpdateSingleFailActionId = Symbol('UPDATE_SINGLE_FAIL_ACTION');
 
 type InitialAction = IBaseAction<typeof InitialActionId>;
 type UpdateSingleBeginAction<TItem> = IBaseAction<typeof UpdateSingleBeginActionId, { changedItem: TItem }>;
+type UpdateSingleSuccessAction<TItem> = IBaseAction<typeof UpdateSingleSuccessActionId, { updatedItem: TItem }>;
 type UpdateSingleCommitAction<TItem> = IBaseAction<typeof UpdateSingleCommitActionId, { changedItem: BehaviorSubject<TItem> }>;
-type UpdateSingleCompleteAction<TItem> = IBaseAction<typeof UpdateSingleCompleteActionId, { updatedItem: TItem }>;
 type UpdateSingleFailAction<TItem, TError> = IBaseAction<typeof UpdateSingleFailActionId, { changedItem: TItem, error: TError }>;
 
 export interface IUpdateSingleArgs<TItem> {
@@ -43,7 +43,7 @@ export const updateItem = <TItem>({
     }
 
     const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isUpdateSingleCompleteAction<TItem>(action)) {
+        if (isUpdateSingleSuccessAction<TItem>(action)) {
             const result = commit({ updated: [action.payload.updatedItem], accessor });
 
             const commitAction: UpdateSingleCommitAction<TItem> = {
@@ -78,9 +78,9 @@ export const updateItem = <TItem>({
 
     from(request(changedItem)).subscribe({
         next: (updatedItem) => {
-            const completeAction: UpdateSingleCompleteAction<TItem> = {
+            const completeAction: UpdateSingleSuccessAction<TItem> = {
                 topicId,
-                actionId: UpdateSingleCompleteActionId,
+                actionId: UpdateSingleSuccessActionId,
                 payload: { updatedItem }
             }
 
@@ -102,12 +102,12 @@ export const isUpdateSingleBeginAction = <TItem>(action: IBaseAction): action is
     return action.actionId === UpdateSingleBeginActionId
 }
 
-export const isUpdateSingleCommitAction = <TItem>(action: IBaseAction): action is UpdateSingleCommitAction<TItem> => {
-    return action.actionId === UpdateSingleCommitActionId
+export const isUpdateSingleSuccessAction = <TItem>(action: IBaseAction): action is UpdateSingleSuccessAction<TItem> => {
+    return action.actionId === UpdateSingleSuccessActionId
 }
 
-export const isUpdateSingleCompleteAction = <TItem>(action: IBaseAction): action is UpdateSingleCompleteAction<TItem> => {
-    return action.actionId === UpdateSingleCompleteActionId
+export const isUpdateSingleCommitAction = <TItem>(action: IBaseAction): action is UpdateSingleCommitAction<TItem> => {
+    return action.actionId === UpdateSingleCommitActionId
 }
 
 export const isUpdateSingleFailAction = <TItem, TError>(action: IBaseAction): action is UpdateSingleFailAction<TItem, TError> => {

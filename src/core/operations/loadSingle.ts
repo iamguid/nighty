@@ -6,12 +6,12 @@ import { commit } from "../store/commit";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadSingleBeginActionId = Symbol('LOAD_SINGLE_BEGIN_ACTION')
-export const LoadSingleCompleteActionId = Symbol('LOAD_SINGLE_COMPLETE_ACTION')
+export const LoadSingleSuccessActionId = Symbol('LOAD_SINGLE_SUCCESS_ACTION')
 export const LoadSingleFailActionId = Symbol('LOAD_SINGLE_FAIL_ACTION')
 
 type InitialAction = IBaseAction<typeof InitialActionId>
 type LoadSingleBeginAction = IBaseAction<typeof LoadSingleBeginActionId, { itemId: string }>
-type LoadSingleCompleteAction<TItem> = IBaseAction<typeof LoadSingleCompleteActionId, { item: TItem }>
+type LoadSingleSuccessAction<TItem> = IBaseAction<typeof LoadSingleSuccessActionId, { item: TItem }>
 type LoadSingleFailAction<TError> = IBaseAction<typeof LoadSingleFailActionId, { itemId: string, error: TError }>
 
 export interface ILoadSingleArgs<TItem> {
@@ -41,7 +41,7 @@ export const loadSingle = <TItem>({
     }
 
     const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isLoadSingleCompleteAction<TItem>(action) && action.topicId === topicId) {
+        if (isLoadSingleSuccessAction<TItem>(action) && action.topicId === topicId) {
             return commit({ updated: [action.payload.item], accessor });
         }
 
@@ -66,9 +66,9 @@ export const loadSingle = <TItem>({
     from(request(id))
         .subscribe({
             next: (item) => {
-                const endAction: LoadSingleCompleteAction<TItem> = {
+                const endAction: LoadSingleSuccessAction<TItem> = {
                     topicId,
-                    actionId: LoadSingleCompleteActionId,
+                    actionId: LoadSingleSuccessActionId,
                     payload: { item }
                 }
 
@@ -92,10 +92,10 @@ export const isLoadSingleBeginAction = (action: IBaseAction): action is LoadSing
     return action.actionId === LoadSingleBeginActionId
 }
 
-export const isLoadSingleCompleteAction = <TItem>(action: IBaseAction): action is LoadSingleCompleteAction<TItem> => {
-    return action.actionId === LoadSingleCompleteActionId
+export const isLoadSingleSuccessAction = <TItem>(action: IBaseAction): action is LoadSingleSuccessAction<TItem> => {
+    return action.actionId === LoadSingleSuccessActionId
 }
 
 export const isLoadSingleFailAction = <TItem>(action: IBaseAction): action is LoadSingleFailAction<TItem> => {
-    return action.actionId === LoadSingleCompleteActionId
+    return action.actionId === LoadSingleFailActionId
 }

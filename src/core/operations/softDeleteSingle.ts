@@ -6,14 +6,14 @@ import { commit } from "../store/commit";
 
 const InitialActionId = Symbol('INITIAL_ACTION')
 const SoftDeleteSingleBeginActionId = Symbol('SOFT_DELETE_SINGLE_BEGIN_ACTION');
+const SoftDeleteSingleSuccessActionId = Symbol('SOFT_DELETE_SINGLE_SUCCESS_ACTION');
 const SoftDeleteSingleCommitActionId = Symbol('SOFT_DELETE_SINGLE_COMMIT_ACTION');
-const SoftDeleteSingleCompleteActionId = Symbol('SOFT_DELETE_SINGLE_COMPLETE_ACTION');
 const SoftDeleteSingleFailActionId = Symbol('SOFT_DELETE_SINGLE_FAIL_ACTION');
 
 type InitialAction = IBaseAction<typeof InitialActionId>;
 type SoftDeleteSingleBeginAction = IBaseAction<typeof SoftDeleteSingleBeginActionId, { itemId: string }>
+type SoftDeleteSingleSuccessAction<TItem> = IBaseAction<typeof SoftDeleteSingleSuccessActionId, { updatedItem: TItem }>
 type SoftDeleteSingleCommitAction<TItem> = IBaseAction<typeof SoftDeleteSingleCommitActionId, { updatedItem: BehaviorSubject<TItem> }>
-type SoftDeleteSingleCompleteAction<TItem> = IBaseAction<typeof SoftDeleteSingleCompleteActionId, { updatedItem: TItem }>
 type SoftDeleteSingleFailAction<TError> = IBaseAction<typeof SoftDeleteSingleFailActionId, { itemId: string, error: TError }>
 
 export interface ISoftDeleteItemArgs<TItem> {
@@ -43,7 +43,7 @@ export const softDeleteItem = <TItem>({
     }
 
     const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isSoftDeleteSingleCompleteAction<TItem>(action)) {
+        if (isSoftDeleteSingleSuccessAction<TItem>(action)) {
             const result = commit({ updated: [action.payload.updatedItem], accessor });
 
             const commitAction: SoftDeleteSingleCommitAction<TItem> = {
@@ -79,9 +79,9 @@ export const softDeleteItem = <TItem>({
     from(request(id))
         .subscribe({
             next: (updatedItem) => {
-                const endAction: SoftDeleteSingleCompleteAction<TItem> = {
+                const endAction: SoftDeleteSingleSuccessAction<TItem> = {
                     topicId,
-                    actionId: SoftDeleteSingleCompleteActionId,
+                    actionId: SoftDeleteSingleSuccessActionId,
                     payload: { updatedItem }
                 }
 
@@ -103,8 +103,8 @@ export const isSoftDeleteSingleBeginAction = (action: IBaseAction): action is So
     return action.actionId === SoftDeleteSingleBeginActionId
 }
 
-export const isSoftDeleteSingleCompleteAction = <TItem>(action: IBaseAction): action is SoftDeleteSingleCompleteAction<TItem> => {
-    return action.actionId === SoftDeleteSingleCompleteActionId
+export const isSoftDeleteSingleSuccessAction = <TItem>(action: IBaseAction): action is SoftDeleteSingleSuccessAction<TItem> => {
+    return action.actionId === SoftDeleteSingleSuccessActionId
 }
 
 export const isSoftDeleteSingleCommitAction = <TItem>(action: IBaseAction): action is SoftDeleteSingleCommitAction<TItem> => {

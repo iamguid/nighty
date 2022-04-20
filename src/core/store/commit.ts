@@ -3,7 +3,7 @@ import { IAccessor } from "../Accessor";
 
 export interface ICommitArgs<TItem> {
     updated: TItem[], 
-    deleted?: TItem[],
+    deleted?: TItem[] | string[],
     accessor: IAccessor<TItem>
 }
 
@@ -29,7 +29,7 @@ export const commit = <TItem>({
     }
 
     for (const item of deleted) {
-        const itemId = accessor.getId(item);
+        const itemId = typeof item === 'string' ? item : accessor.getId(item);
         const currentSubject = accessor.get(itemId);
 
         if (currentSubject) {

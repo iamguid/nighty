@@ -51,15 +51,27 @@ export class TodoApi {
         });
     }
 
-    public deleteTodo = (id: string): Promise<ITodoModel> => {
-        console.log('[TODO_API] deleteTodo request', id);
+    public softDeleteTodo = (id: string): Promise<ITodoModel> => {
+        console.log('[TODO_API] softDeleteTodo request', id);
 
         return new Promise((resolve, reject) => {
             setTimeout(() => {
                 const deletedTodo = this.todos.get(id);
                 deletedTodo!.deleted = true;
                 resolve(deletedTodo!);
-                console.log('[TODO_API] deleteTodo response', deletedTodo);
+                console.log('[TODO_API] softDeleteTodo response', deletedTodo);
+            }, 1000);
+        });
+    }
+
+    public hardDeleteTodo = (id: string): Promise<void> => {
+        console.log('[TODO_API] hardDeleteTodo request', id);
+
+        return new Promise((resolve, reject) => {
+            setTimeout(() => {
+                this.todos.delete(id);
+                resolve();
+                console.log('[TODO_API] hardDeleteTodo response', id);
             }, 1000);
         });
     }

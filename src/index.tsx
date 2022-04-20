@@ -54,7 +54,7 @@ todoService.addTodo({
   deleted: false,
 });
 
-todoService.deleteTodo('4');
+todoService.softDeleteTodo('4');
 
 todoService.updateTodo({
   id: '2',
@@ -63,6 +63,8 @@ todoService.updateTodo({
   done: true,
   deleted: false,
 })
+
+todoService.hardDeleteTodo('3');
 
 todoService.updateTodo({
   id: '1',

@@ -4,6 +4,7 @@ import { IBaseAction, Id } from "../IBaseAction";
 import { commit } from "../store/commit";
 import { DataWithAction, Reducer, makeScanFromReducer } from "../Reducer";
 import { retryWithDelay } from "../operators/retryWithDelay";
+import { isHardDeleteSingleCommitAction } from "./hardDeleteSingle";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadBatchBeginActionId = Symbol('LOAD_BATCH_BEGIN_ACTION')
@@ -56,6 +57,10 @@ export const loadBatch = <TItem>({
             actions$.next(commitAction);
 
             return result;
+        }
+
+        if (isHardDeleteSingleCommitAction(action)) {
+            return prev.data.filter(d => accessor.getId(d.value) !== action.payload.itemId)
         }
 
         return prev.data

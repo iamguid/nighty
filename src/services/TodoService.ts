@@ -9,6 +9,7 @@ import { updateItem } from "../core/operations/updateSingle";
 import { loadAll as loadAll } from "../core/operations/loadAll";
 import { loadPaginatable } from "../core/operations/loadPaginatable";
 import { IAccessor } from "../core/Accessor";
+import { hardDeleteItem } from "../core/operations/hardDeleteSingle";
 
 export class TodoService {
     private todoApi: TodoApi;
@@ -78,13 +79,23 @@ export class TodoService {
         })
     }
 
-    public deleteTodo(id: string): void {
+    public softDeleteTodo(id: string): void {
         softDeleteItem({
-            topicId: Symbol('deleteTodo'),
+            topicId: Symbol('softDeleteTodo'),
             accessor: this.accessor,
             id,
             actions$: this._actions$,
-            request: this.todoApi.deleteTodo,
+            request: this.todoApi.softDeleteTodo,
+        })
+    }
+
+    public hardDeleteTodo(id: string): void {
+        hardDeleteItem({
+            topicId: Symbol('hardDeleteTodo'),
+            accessor: this.accessor,
+            id,
+            actions$: this._actions$,
+            request: this.todoApi.hardDeleteTodo,
         })
     }
 

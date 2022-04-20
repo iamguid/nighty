@@ -5,6 +5,7 @@ import { DataWithAction, Reducer, makeScanFromReducer } from "../Reducer";
 import { isAddSingleBeginAction, isAddSingleSuccessAction } from "./addSingle";
 import { commit } from "../store/commit";
 import { retryWithDelay } from "../operators/retryWithDelay";
+import { isHardDeleteSingleCommitAction } from "./hardDeleteSingle";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadPageBeginActionId = Symbol('LOAD_PAGE_BEGIN_ACTION')
@@ -72,6 +73,10 @@ export const loadPaginatable = <TItem>({
 
         if (isAddSingleSuccessAction<TItem>(action)) {
             paginator$.next();
+        }
+
+        if (isHardDeleteSingleCommitAction(action)) {
+            return prev.data.filter(d => accessor.getId(d.value) !== action.payload.itemId)
         }
 
         return prev.data;

@@ -5,6 +5,7 @@ import { commit } from "../store/commit";
 import { DataWithAction, Reducer, makeScanFromReducer } from "../Reducer";
 import { isAddSingleCommitAction } from "./addSingle";
 import { retryWithDelay } from "../operators/retryWithDelay";
+import { isHardDeleteSingleCommitAction } from "./hardDeleteSingle";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadAllBeginActionId = Symbol('LOAD_ALL_BEGIN_ACTION')
@@ -59,6 +60,10 @@ export const loadAll = <TItem>({
 
         if (isAddSingleCommitAction<TItem>(action)) {
             return [ ...prev.data, action.payload.updatedItem ];
+        }
+
+        if (isHardDeleteSingleCommitAction(action)) {
+            return prev.data.filter(d => accessor.getId(d.value) !== action.payload.itemId)
         }
 
         return prev.data

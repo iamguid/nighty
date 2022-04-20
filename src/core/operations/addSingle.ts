@@ -44,7 +44,7 @@ export const addSingle = <TItem>({
     }
 
     const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isAddSingleSuccessAction<TItem>(action)) {
+        if (isAddSingleSuccessAction<TItem>(action) && topicId === action.topicId) {
             const result = commit({ updated: [action.payload.updatedItem], accessor });
 
             const commitAction: AddSingleCommitAction<TItem> = {

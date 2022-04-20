@@ -52,7 +52,7 @@ export const loadPaginatable = <TItem>({
     }
 
     const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isLoadPageSuccessAction<TItem>(action)) {
+        if (isLoadPageSuccessAction<TItem>(action) && topicId === action.topicId) {
             const result = [...prev.data, ...commit({ updated: action.payload.items, accessor })];
 
             const commitAction: LoadPageCommitAction<TItem> = {

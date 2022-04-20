@@ -44,7 +44,7 @@ export const softDeleteItem = <TItem>({
     }
 
     const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isSoftDeleteSingleSuccessAction<TItem>(action)) {
+        if (isSoftDeleteSingleSuccessAction<TItem>(action) && topicId === action.topicId) {
             const result = commit({ updated: [action.payload.updatedItem], accessor });
 
             const commitAction: SoftDeleteSingleCommitAction<TItem> = {

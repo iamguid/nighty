@@ -43,7 +43,7 @@ export const loadAll = <TItem>({
     }
 
     const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isLoadAllSuccessAction<TItem>(action)) {
+        if (isLoadAllSuccessAction<TItem>(action) && topicId === action.topicId) {
             const result = commit({ updated: action.payload.items, accessor });
 
             const commitAction: LoadAllCommitAction<TItem> = {

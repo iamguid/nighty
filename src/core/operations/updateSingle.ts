@@ -44,13 +44,13 @@ export const updateItem = <TItem>({
     }
 
     const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isUpdateSingleSuccessAction<TItem>(action)) {
+        if (isUpdateSingleSuccessAction<TItem>(action) && topicId === action.topicId) {
             const result = commit({ updated: [action.payload.updatedItem], accessor });
 
             const commitAction: UpdateSingleCommitAction<TItem> = {
                 topicId,
                 actionId: UpdateSingleCommitActionId,
-                payload: { changedItem: result[0] as BehaviorSubject<TItem> }
+                payload: { changedItem: result[0] }
             }
 
             actions$.next(commitAction);

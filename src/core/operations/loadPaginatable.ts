@@ -4,6 +4,7 @@ import { IBaseAction, Id } from "../IBaseAction";
 import { DataWithAction, Reducer, makeScanFromReducer } from "../Reducer";
 import { isAddSingleBeginAction, isAddSingleSuccessAction } from "./addSingle";
 import { commit } from "../store/commit";
+import { retryWithDelay } from "../operators/retryWithDelay";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadPageBeginActionId = Symbol('LOAD_PAGE_BEGIN_ACTION')
@@ -93,28 +94,30 @@ export const loadPaginatable = <TItem>({
 
         actions$.next(beginAction);
 
-        from(request(itemsPerPage, pageToken)).subscribe({
-            next: (result) => {
-                pageToken = result.nextPageToken;
+        from(request(itemsPerPage, pageToken))
+            .pipe(retryWithDelay(2000, 3))
+            .subscribe({
+                next: (result) => {
+                    pageToken = result.nextPageToken;
 
-                const endAction: LoadPageSuccessAction<TItem> = {
-                    topicId,
-                    actionId: LoadPageSuccessActionId,
-                    payload: { items: result.data, nextPageToken: pageToken }
+                    const endAction: LoadPageSuccessAction<TItem> = {
+                        topicId,
+                        actionId: LoadPageSuccessActionId,
+                        payload: { items: result.data, nextPageToken: pageToken }
+                    }
+
+                    actions$.next(endAction);
+                },
+                error: (error) => {
+                    const failAction: LoadPageFailAction<typeof error> = {
+                        topicId,
+                        actionId: LoadPageFailActionId,
+                        payload: { currentPageToken: pageToken, error }
+                    }
+
+                    actions$.next(failAction);
                 }
-
-                actions$.next(endAction);
-            },
-            error: (error) => {
-                const failAction: LoadPageFailAction<typeof error> = {
-                    topicId,
-                    actionId: LoadPageFailActionId,
-                    payload: { currentPageToken: pageToken, error }
-                }
-
-                actions$.next(failAction);
-            }
-        })
+            })
     })
 
     return reducer$;

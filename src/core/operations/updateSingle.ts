@@ -1,6 +1,7 @@
 import { BehaviorSubject, distinctUntilChanged, from, map, scan, Subject } from "rxjs";
 import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
+import { retryWithDelay } from "../operators/retryWithDelay";
 import { DataWithAction, makeScanFromReducer, Reducer } from "../Reducer";
 import { commit } from "../store/commit";
 
@@ -76,26 +77,28 @@ export const updateItem = <TItem>({
 
     actions$.next(beginAction);
 
-    from(request(changedItem)).subscribe({
-        next: (updatedItem) => {
-            const completeAction: UpdateSingleSuccessAction<TItem> = {
-                topicId,
-                actionId: UpdateSingleSuccessActionId,
-                payload: { updatedItem }
-            }
+    from(request(changedItem))
+        .pipe(retryWithDelay(2000, 3))
+        .subscribe({
+            next: (updatedItem) => {
+                const completeAction: UpdateSingleSuccessAction<TItem> = {
+                    topicId,
+                    actionId: UpdateSingleSuccessActionId,
+                    payload: { updatedItem }
+                }
 
-            actions$.next(completeAction);
-        },
-        error: (error) => {
-            const failAction: UpdateSingleFailAction<TItem, typeof error> = {
-                topicId,
-                actionId: UpdateSingleFailActionId,
-                payload: { changedItem, error }
-            }
+                actions$.next(completeAction);
+            },
+            error: (error) => {
+                const failAction: UpdateSingleFailAction<TItem, typeof error> = {
+                    topicId,
+                    actionId: UpdateSingleFailActionId,
+                    payload: { changedItem, error }
+                }
 
-            actions$.next(failAction);
-        }
-    })
+                actions$.next(failAction);
+            }
+        })
 }
 
 export const isUpdateSingleBeginAction = <TItem>(action: IBaseAction): action is UpdateSingleBeginAction<TItem> => {

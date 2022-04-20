@@ -3,6 +3,7 @@ import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
 import { commit } from "../store/commit";
 import { DataWithAction, Reducer, makeScanFromReducer } from "../Reducer";
+import { retryWithDelay } from "../operators/retryWithDelay";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadBatchBeginActionId = Symbol('LOAD_BATCH_BEGIN_ACTION')
@@ -75,6 +76,7 @@ export const loadBatch = <TItem>({
     actions$.next(beginAction);
 
     from(request(ids))
+        .pipe(retryWithDelay(2000, 3))
         .subscribe({
             next: (items) => {
                 const endAction: LoadBatchSuccessAction<TItem> = {

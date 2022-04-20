@@ -1,6 +1,7 @@
 import { BehaviorSubject, distinctUntilChanged, from, map, Observable, scan, Subject } from "rxjs";
 import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
+import { retryWithDelay } from "../operators/retryWithDelay";
 import { DataWithAction, Reducer, makeScanFromReducer } from "../Reducer";
 import { commit } from "../store/commit";
 
@@ -76,6 +77,7 @@ export const loadSingle = <TItem>({
     actions$.next(beginAction);
 
     from(request(id))
+        .pipe(retryWithDelay(2000, 3))
         .subscribe({
             next: (item) => {
                 const endAction: LoadSingleSuccessAction<TItem> = {

@@ -1,6 +1,7 @@
 import { BehaviorSubject, combineLatest, distinctUntilChanged, from, map, Observable, of, scan, share, Subject } from "rxjs";
 import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
+import { retryWithDelay } from "../operators/retryWithDelay";
 import { DataWithAction, makeScanFromReducer, Reducer } from "../Reducer";
 import { commit } from "../store/commit";
 
@@ -77,6 +78,7 @@ export const softDeleteItem = <TItem>({
     actions$.next(beginAction);
 
     from(request(id))
+        .pipe(retryWithDelay(2000, 3))
         .subscribe({
             next: (updatedItem) => {
                 const endAction: SoftDeleteSingleSuccessAction<TItem> = {

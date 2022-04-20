@@ -4,6 +4,7 @@ import { IBaseAction, Id } from "../IBaseAction";
 import { commit } from "../store/commit";
 import { DataWithAction, Reducer, makeScanFromReducer } from "../Reducer";
 import { isAddSingleCommitAction } from "./addSingle";
+import { retryWithDelay } from "../operators/retryWithDelay";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadAllBeginActionId = Symbol('LOAD_ALL_BEGIN_ACTION')
@@ -78,6 +79,7 @@ export const loadAll = <TItem>({
     actions$.next(beginAction);
 
     from(request())
+        .pipe(retryWithDelay(2000, 3))
         .subscribe({
             next: (items) => {
                 const endAction: LoadAllSuccessAction<TItem> = {

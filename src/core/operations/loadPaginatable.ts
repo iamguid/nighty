@@ -8,11 +8,13 @@ import { commit } from "../store/commit";
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadPageBeginActionId = Symbol('LOAD_PAGE_BEGIN_ACTION')
 export const LoadPageSuccessActionId = Symbol('LOAD_PAGE_SUCCESS_ACTION')
+export const LoadPageCommitActionId = Symbol('LOAD_PAGE_COMMIT_ACTION')
 export const LoadPageFailActionId = Symbol('LOAD_PAGE_FAIL_ACTION')
 
 type InitialAction = IBaseAction<typeof InitialActionId>
 type LoadPageBeginAction = IBaseAction<typeof LoadPageBeginActionId, { itemsPerPage: number, currentPageToken: string }>
 type LoadPageSuccessAction<TItem> = IBaseAction<typeof LoadPageSuccessActionId, { items: TItem[], nextPageToken: string }>
+type LoadPageCommitAction<TItem> = IBaseAction<typeof LoadPageCommitActionId, { updatedItems: BehaviorSubject<TItem>[], currentPageToken: string }>
 type LoadPageFailAction<TError> = IBaseAction<typeof LoadPageFailActionId, { currentPageToken: string, error: TError }>
 
 export interface IPaginatorResult<TItem> {
@@ -50,7 +52,17 @@ export const loadPaginatable = <TItem>({
 
     const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
         if (isLoadPageSuccessAction<TItem>(action)) {
-            return [...prev.data, ...commit({ updated: action.payload.items, accessor })];
+            const result = [...prev.data, ...commit({ updated: action.payload.items, accessor })];
+
+            const commitAction: LoadPageCommitAction<TItem> = {
+                topicId,
+                actionId: LoadPageCommitActionId,
+                payload: { currentPageToken: action.payload.nextPageToken, updatedItems: result }
+            }
+
+            actions$.next(commitAction);
+
+            return result;
         }
 
         if (isAddSingleBeginAction<TItem>(action)) {
@@ -114,6 +126,10 @@ export const isLoadPageBeginAction = (action: IBaseAction): action is LoadPageBe
 
 export const isLoadPageSuccessAction = <TItem>(action: IBaseAction): action is LoadPageSuccessAction<TItem> => {
     return action.actionId === LoadPageSuccessActionId
+}
+
+export const isLoadPageCommitAction = <TItem>(action: IBaseAction): action is LoadPageCommitAction<TItem> => {
+    return action.actionId === LoadPageCommitActionId
 }
 
 export const isLoadPageFailAction = <TItem>(action: IBaseAction): action is LoadPageFailAction<TItem> => {

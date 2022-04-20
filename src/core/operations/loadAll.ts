@@ -8,11 +8,13 @@ import { isAddSingleCommitAction } from "./addSingle";
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadAllBeginActionId = Symbol('LOAD_ALL_BEGIN_ACTION')
 export const LoadAllSuccessActionId = Symbol('LOAD_ALL_SUCCESS_ACTION')
+export const LoadAllCommitActionId = Symbol('LOAD_ALL_COMMIT_ACTION')
 export const LoadAllFailActionId = Symbol('LOAD_ALL_FAIL_ACTION')
 
 export type InitialAction = IBaseAction<typeof InitialActionId>
 export type LoadAllBeginAction = IBaseAction<typeof LoadAllBeginActionId>
 export type LoadAllSuccessAction<TItem> = IBaseAction<typeof LoadAllSuccessActionId, { items: TItem[] }>
+export type LoadAllCommitAction<TItem> = IBaseAction<typeof LoadAllCommitActionId, { updatedItems: BehaviorSubject<TItem>[] }>
 export type LoadAllFailAction<TError> = IBaseAction<typeof LoadAllFailActionId, { error: TError }>
 
 export interface ILoadAllArgs<TItem> {
@@ -41,7 +43,17 @@ export const loadAll = <TItem>({
 
     const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
         if (isLoadAllSuccessAction<TItem>(action)) {
-            return commit({ updated: action.payload.items, accessor });
+            const result = commit({ updated: action.payload.items, accessor });
+
+            const commitAction: LoadAllCommitAction<TItem> = {
+                topicId,
+                actionId: LoadAllCommitActionId,
+                payload: { updatedItems: result }
+            }
+
+            actions$.next(commitAction);
+
+            return result;
         }
 
         if (isAddSingleCommitAction<TItem>(action)) {
@@ -96,6 +108,10 @@ export const isLoadAllBeginAction = (action: IBaseAction): action is LoadAllBegi
 
 export const isLoadAllSuccessAction = <TItem>(action: IBaseAction): action is LoadAllSuccessAction<TItem> => {
     return action.actionId === LoadAllSuccessActionId
+}
+
+export const isLoadAllCommitAction = <TItem>(action: IBaseAction): action is LoadAllCommitAction<TItem> => {
+    return action.actionId === LoadAllCommitActionId
 }
 
 export const isLoadAllFailAction = <TItem>(action: IBaseAction): action is LoadAllFailAction<TItem> => {

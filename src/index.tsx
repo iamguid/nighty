@@ -18,9 +18,33 @@ const allTodos$ = todoService.getAllTodos();
 const onlyDoneTodos$ = todoService.getOnlyDoneTodos();
 const firstTodo$ = todoService.getTodoById('1');
 
-allTodos$.subscribe(todos => console.info('allTodos$ updated', todos));
-onlyDoneTodos$.subscribe(todos => console.info('onlyDoneTodos$ updated', todos));
-firstTodo$.subscribe(todo => console.info('firstTodo$ updated', todo));
+allTodos$.subscribe(todos => {
+  console.info('allTodos$ updated', todos)
+
+  for (const todo of todos) {
+    todo.subscribe(updated => {
+      console.info(`allTodos$ -> todo[${updated.id!}] updated`, updated)
+    })
+  }
+});
+
+onlyDoneTodos$.subscribe(todos => {
+  console.info('onlyDoneTodos$ updated', todos);
+
+  for (const todo of todos) {
+    todo.subscribe(updated => {
+      console.info(`onlyDoneTodos$ -> todo[${updated.id!}] updated`, updated)
+    })
+  }
+});
+
+firstTodo$.subscribe(todo => {
+  console.info('firstTodo$ updated', todo)
+
+  todo?.subscribe(updated => {
+    console.info(`firstTodo$ -> todo[${updated.id}] updated`, updated)
+  })
+});
 
 todoService.addTodo({ 
   id: '4',

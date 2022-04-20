@@ -66,7 +66,7 @@ export const loadAll = <TItem>({
 
     const result$ = actions$.pipe(
         scan(makeScanFromReducer(reducer), initial),
-        distinctUntilChanged((prev, next) => prev.data === next.data),
+        distinctUntilChanged((prev, next) => prev.data.length === next.data.length),
         map(({ data, action }) => data),
     )
 

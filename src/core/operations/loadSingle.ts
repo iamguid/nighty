@@ -63,7 +63,7 @@ export const loadSingle = <TItem>({
 
     const result$ = actions$.pipe(
         scan(makeScanFromReducer(reducer), initial),
-        distinctUntilChanged(({ data: prevData }, { data: nextData }) => prevData === nextData),
+        distinctUntilChanged(({ data: prevData }, { data: nextData }) => prevData.length === nextData.length),
         map(({ data, action }) => data),
         map(data => data[0] || null),
     )

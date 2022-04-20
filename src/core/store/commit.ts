@@ -11,8 +11,8 @@ export const commit = <TItem>({
     updated,
     deleted = [],
     accessor,
-}: ICommitArgs<TItem>): Subject<TItem>[] => {
-    const result: Subject<TItem>[] = [];
+}: ICommitArgs<TItem>): BehaviorSubject<TItem>[] => {
+    const result: BehaviorSubject<TItem>[] = [];
 
     for (const item of updated) {
         const itemId = accessor.getId(item);

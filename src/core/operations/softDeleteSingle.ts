@@ -1,4 +1,4 @@
-import { combineLatest, distinctUntilChanged, from, map, Observable, of, scan, share, Subject } from "rxjs";
+import { BehaviorSubject, combineLatest, distinctUntilChanged, from, map, Observable, of, scan, share, Subject } from "rxjs";
 import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
 import { DataWithAction, makeScanFromReducer, Reducer } from "../Reducer";
@@ -6,11 +6,15 @@ import { commit } from "../store/commit";
 
 const InitialActionId = Symbol('INITIAL_ACTION')
 const SoftDeleteSingleBeginActionId = Symbol('SOFT_DELETE_SINGLE_BEGIN_ACTION');
-const SoftDeleteSingleEndActionId = Symbol('SOFT_DELETE_SINGLE_END_ACTION');
+const SoftDeleteSingleCommitActionId = Symbol('SOFT_DELETE_SINGLE_COMMIT_ACTION');
+const SoftDeleteSingleCompleteActionId = Symbol('SOFT_DELETE_SINGLE_COMPLETE_ACTION');
+const SoftDeleteSingleFailActionId = Symbol('SOFT_DELETE_SINGLE_FAIL_ACTION');
 
 type InitialAction = IBaseAction<typeof InitialActionId>;
 type SoftDeleteSingleBeginAction = IBaseAction<typeof SoftDeleteSingleBeginActionId, { itemId: string }>
-type SoftDeleteSingleEndAction<TItem> = IBaseAction<typeof SoftDeleteSingleEndActionId, { updatedItem: TItem }>
+type SoftDeleteSingleCommitAction<TItem> = IBaseAction<typeof SoftDeleteSingleCommitActionId, { updatedItem: BehaviorSubject<TItem> }>
+type SoftDeleteSingleCompleteAction<TItem> = IBaseAction<typeof SoftDeleteSingleCompleteActionId, { updatedItem: TItem }>
+type SoftDeleteSingleFailAction<TError> = IBaseAction<typeof SoftDeleteSingleFailActionId, { itemId: string, error: TError }>
 
 export interface ISoftDeleteItemArgs<TItem> {
     topicId: Id,
@@ -27,9 +31,9 @@ export const softDeleteItem = <TItem>({
     actions$,
     request,
 }: ISoftDeleteItemArgs<TItem>) => {
-    const initialData: Subject<TItem>[] = [];
+    const initialData: BehaviorSubject<TItem>[] = [];
 
-    const initial: DataWithAction<Subject<TItem>[], InitialAction> = {
+    const initial: DataWithAction<BehaviorSubject<TItem>[], InitialAction> = {
         data: initialData,
         action: {
             topicId: topicId,
@@ -38,9 +42,19 @@ export const softDeleteItem = <TItem>({
         },
     }
 
-    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isSoftDeleteSingleEndAction<TItem>(action)) {
-            return commit({ updated: [action.payload.updatedItem], accessor })
+    const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
+        if (isSoftDeleteSingleCompleteAction<TItem>(action)) {
+            const result = commit({ updated: [action.payload.updatedItem], accessor });
+
+            const commitAction: SoftDeleteSingleCommitAction<TItem> = {
+                topicId,
+                actionId: SoftDeleteSingleCommitActionId,
+                payload: { updatedItem: result[0] }
+            }
+
+            actions$.next(commitAction);
+
+            return result
         }
 
         return prev.data;
@@ -52,6 +66,8 @@ export const softDeleteItem = <TItem>({
         distinctUntilChanged(({ data: prevData }, { data: nextData }) => prevData === nextData),
     )
 
+    result$.subscribe();
+
     const beginAction: SoftDeleteSingleBeginAction = {
         topicId,
         actionId: SoftDeleteSingleBeginActionId,
@@ -61,14 +77,25 @@ export const softDeleteItem = <TItem>({
     actions$.next(beginAction);
 
     from(request(id))
-        .subscribe((updatedItem) => {
-            const endAction: SoftDeleteSingleEndAction<TItem> = {
-                topicId,
-                actionId: SoftDeleteSingleEndActionId,
-                payload: { updatedItem }
-            }
+        .subscribe({
+            next: (updatedItem) => {
+                const endAction: SoftDeleteSingleCompleteAction<TItem> = {
+                    topicId,
+                    actionId: SoftDeleteSingleCompleteActionId,
+                    payload: { updatedItem }
+                }
 
-            actions$.next(endAction);
+                actions$.next(endAction);
+            },
+            error: (error) => {
+                const failAction: SoftDeleteSingleFailAction<typeof error> = {
+                    topicId,
+                    actionId: SoftDeleteSingleFailActionId,
+                    payload: { itemId: id, error }
+                }
+
+                actions$.next(failAction);
+            }
         })
 }
 
@@ -76,6 +103,14 @@ export const isSoftDeleteSingleBeginAction = (action: IBaseAction): action is So
     return action.actionId === SoftDeleteSingleBeginActionId
 }
 
-export const isSoftDeleteSingleEndAction = <TItem>(action: IBaseAction): action is SoftDeleteSingleEndAction<TItem> => {
-    return action.actionId === SoftDeleteSingleEndActionId
+export const isSoftDeleteSingleCompleteAction = <TItem>(action: IBaseAction): action is SoftDeleteSingleCompleteAction<TItem> => {
+    return action.actionId === SoftDeleteSingleCompleteActionId
+}
+
+export const isSoftDeleteSingleCommitAction = <TItem>(action: IBaseAction): action is SoftDeleteSingleCommitAction<TItem> => {
+    return action.actionId === SoftDeleteSingleCommitActionId
+}
+
+export const isSoftDeleteSingleFailAction = <TError>(action: IBaseAction): action is SoftDeleteSingleFailAction<TError> => {
+    return action.actionId === SoftDeleteSingleFailActionId
 }

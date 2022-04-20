@@ -9,11 +9,10 @@ import { updateItem } from "../core/operations/updateSingle";
 import { loadAll as loadAll } from "../core/operations/loadAll";
 import { loadPaginatable } from "../core/operations/loadPaginatable";
 import { IAccessor } from "../core/Accessor";
-import { DataWithAction } from "../core/Reducer";
 
 export class TodoService {
     private todoApi: TodoApi;
-    private store: Map<string, Subject<ITodoModel>> = new Map(); // key - todoId
+    private store: Map<string, BehaviorSubject<ITodoModel>> = new Map(); // key - todoId
     private _actions$: Subject<IBaseAction<any, any>> = new Subject();
     private accessor: IAccessor<ITodoModel>;
 
@@ -107,11 +106,11 @@ export class TodoService {
         return todo.id!;
     }
 
-    private todoGetter = (id: string): Subject<ITodoModel> | null => {
+    private todoGetter = (id: string): BehaviorSubject<ITodoModel> | null => {
         return this.store.get(id) || null;
     }
 
-    private todoSetter = (id: string, todo: Subject<ITodoModel>): void => {
+    private todoSetter = (id: string, todo: BehaviorSubject<ITodoModel>): void => {
         this.store.set(id, todo);
     }
 

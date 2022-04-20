@@ -1,4 +1,4 @@
-import { combineLatest, distinctUntilChanged, from, map, Observable, of, scan, share, Subject } from "rxjs";
+import { BehaviorSubject, combineLatest, distinctUntilChanged, from, map, Observable, of, scan, share, Subject } from "rxjs";
 import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
 import { DataWithAction, makeScanFromReducer, Reducer } from "../Reducer";
@@ -6,13 +6,15 @@ import { commit } from "../store/commit";
 
 const InitialActionId = Symbol('INITIAL_ACTION')
 const AddSingleBeginActionId = Symbol('ADD_SINGLE_BEGIN_ACTION');
-const AddSingleEndActionId = Symbol('ADD_SINGLE_END_ACTION');
+const AddSingleCompleteActionId = Symbol('ADD_SINGLE_COMPLETE_ACTION');
 const AddSingleCommitActionId = Symbol('ADD_SINGLE_COMMIT_ACTION');
+const AddSingleFailActionId = Symbol('ADD_SINGLE_FAIL_ACTION');
 
 type InitialAction = IBaseAction<typeof InitialActionId>;
 type AddSingleBeginAction<TItem> = IBaseAction<typeof AddSingleBeginActionId, { changedItem: TItem }>
-type AddSingleEndAction<TItem> = IBaseAction<typeof AddSingleEndActionId, { updatedItem: TItem }>
-type AddSingleCommitAction<TItem> = IBaseAction<typeof AddSingleCommitActionId, { updatedItem: Subject<TItem> }>
+type AddSingleCompleteAction<TItem> = IBaseAction<typeof AddSingleCompleteActionId, { updatedItem: TItem }>
+type AddSingleCommitAction<TItem> = IBaseAction<typeof AddSingleCommitActionId, { updatedItem: BehaviorSubject<TItem> }>
+type AddSingleFailAction<TItem, TError> = IBaseAction<typeof AddSingleFailActionId, { changedItem: TItem, error: TError }>
 
 export interface IAddSingleArgs<TItem> {
     topicId: Id,
@@ -29,9 +31,9 @@ export const addSingle = <TItem>({
     actions$,
     request,
 }: IAddSingleArgs<TItem>) => {
-    const initialData: Subject<TItem>[] = [];
+    const initialData: BehaviorSubject<TItem>[] = [];
 
-    const initial: DataWithAction<Subject<TItem>[], InitialAction> = {
+    const initial: DataWithAction<BehaviorSubject<TItem>[], InitialAction> = {
         data: initialData,
         action: {
             topicId: topicId,
@@ -40,8 +42,8 @@ export const addSingle = <TItem>({
         },
     }
 
-    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isAddSingleEndAction<TItem>(action)) {
+    const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
+        if (isAddSingleCompleteAction<TItem>(action)) {
             const result = commit({ updated: [action.payload.updatedItem], accessor });
 
             const commitAction: AddSingleCommitAction<TItem> = {
@@ -75,14 +77,25 @@ export const addSingle = <TItem>({
     actions$.next(beginAction);
 
     from(request(changedItem))
-        .subscribe((updatedItem) => {
-            const endAction: AddSingleEndAction<TItem> = {
-                topicId,
-                actionId: AddSingleEndActionId,
-                payload: { updatedItem }
-            }
+        .subscribe({
+            next: (updatedItem) => {
+                const completeAction: AddSingleCompleteAction<TItem> = {
+                    topicId,
+                    actionId: AddSingleCompleteActionId,
+                    payload: { updatedItem }
+                }
 
-            actions$.next(endAction);
+                actions$.next(completeAction);
+            },
+            error: (error) => {
+                const failAction: AddSingleFailAction<TItem, typeof error> = {
+                    topicId,
+                    actionId: AddSingleFailActionId,
+                    payload: { changedItem, error }
+                }
+
+                actions$.next(failAction);
+            }
         })
 }
 
@@ -90,10 +103,14 @@ export const isAddSingleBeginAction = <TItem>(action: IBaseAction): action is Ad
     return action.actionId === AddSingleBeginActionId
 }
 
-export const isAddSingleEndAction = <TItem>(action: IBaseAction): action is AddSingleEndAction<TItem> => {
-    return action.actionId === AddSingleEndActionId
+export const isAddSingleCompleteAction = <TItem>(action: IBaseAction): action is AddSingleCompleteAction<TItem> => {
+    return action.actionId === AddSingleCompleteActionId
 }
 
 export const isAddSingleCommitAction = <TItem>(action: IBaseAction): action is AddSingleCommitAction<TItem> => {
     return action.actionId === AddSingleCommitActionId
+}
+
+export const isAddSingleFailAction = <TItem, TError>(action: IBaseAction): action is AddSingleFailAction<TItem, TError> => {
+    return action.actionId === AddSingleFailActionId
 }

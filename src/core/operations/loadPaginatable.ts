@@ -1,4 +1,4 @@
-import { combineLatest, distinctUntilChanged, from, map, Observable, of, scan, Subject } from "rxjs";
+import { BehaviorSubject, combineLatest, distinctUntilChanged, from, map, Observable, of, scan, Subject } from "rxjs";
 import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
 import { DataWithAction, Reducer, makeScanFromReducer } from "../Reducer";
@@ -7,11 +7,13 @@ import { commit } from "../store/commit";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadPageBeginActionId = Symbol('LOAD_PAGE_BEGIN_ACTION')
-export const LoadPageEndActionId = Symbol('LOAD_PAGE_END_ACTION')
+export const LoadPageCompleteActionId = Symbol('LOAD_PAGE_COMPLETE_ACTION')
+export const LoadPageFailActionId = Symbol('LOAD_PAGE_FAIL_ACTION')
 
 type InitialAction = IBaseAction<typeof InitialActionId>
 type LoadPageBeginAction = IBaseAction<typeof LoadPageBeginActionId, { itemsPerPage: number, currentPageToken: string }>
-type LoadPageEndAction<TItem> = IBaseAction<typeof LoadPageEndActionId, { items: TItem[], nextPageToken: string }>
+type LoadPageCompleteAction<TItem> = IBaseAction<typeof LoadPageCompleteActionId, { items: TItem[], nextPageToken: string }>
+type LoadPageFailAction<TError> = IBaseAction<typeof LoadPageFailActionId, { currentPageToken: string, error: TError }>
 
 export interface IPaginatorResult<TItem> {
     data: TItem[],
@@ -35,9 +37,9 @@ export const loadPaginatable = <TItem>({
     itemsPerPage,
     request,
 }: IPaginatoableArgs<TItem>): Observable<Subject<TItem>[]> => {
-    const initialData: Subject<TItem>[] = [];
+    const initialData: BehaviorSubject<TItem>[] = [];
 
-    const initial: DataWithAction<Subject<TItem>[], InitialAction> = {
+    const initial: DataWithAction<BehaviorSubject<TItem>[], InitialAction> = {
         data: initialData,
         action: {
             topicId,
@@ -46,13 +48,8 @@ export const loadPaginatable = <TItem>({
         },
     }
 
-    const dataWithAction$: Observable<[Subject<TItem>[], IBaseAction]> = combineLatest([
-        of(initialData),
-        actions$,
-    ]);
-
-    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isLoadPageEndAction<TItem>(action)) {
+    const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
+        if (isLoadPageCompleteAction<TItem>(action)) {
             return [...prev.data, ...commit({ updated: action.payload.items, accessor })];
         }
 
@@ -84,16 +81,27 @@ export const loadPaginatable = <TItem>({
 
         actions$.next(beginAction);
 
-        from(request(itemsPerPage, pageToken)).subscribe((result) => {
-            pageToken = result.nextPageToken;
+        from(request(itemsPerPage, pageToken)).subscribe({
+            next: (result) => {
+                pageToken = result.nextPageToken;
 
-            const endAction: LoadPageEndAction<TItem> = {
-                topicId,
-                actionId: LoadPageEndActionId,
-                payload: { items: result.data, nextPageToken: pageToken }
+                const endAction: LoadPageCompleteAction<TItem> = {
+                    topicId,
+                    actionId: LoadPageCompleteActionId,
+                    payload: { items: result.data, nextPageToken: pageToken }
+                }
+
+                actions$.next(endAction);
+            },
+            error: (error) => {
+                const failAction: LoadPageFailAction<typeof error> = {
+                    topicId,
+                    actionId: LoadPageFailActionId,
+                    payload: { currentPageToken: pageToken, error }
+                }
+
+                actions$.next(failAction);
             }
-
-            actions$.next(endAction);
         })
     })
 
@@ -104,6 +112,10 @@ export const isLoadPageBeginAction = (action: IBaseAction): action is LoadPageBe
     return action.actionId === LoadPageBeginActionId
 }
 
-export const isLoadPageEndAction = <TItem>(action: IBaseAction): action is LoadPageEndAction<TItem> => {
-    return action.actionId === LoadPageEndActionId
+export const isLoadPageCompleteAction = <TItem>(action: IBaseAction): action is LoadPageCompleteAction<TItem> => {
+    return action.actionId === LoadPageCompleteActionId
+}
+
+export const isLoadPageFailAction = <TItem>(action: IBaseAction): action is LoadPageFailAction<TItem> => {
+    return action.actionId === LoadPageFailActionId
 }

@@ -1,4 +1,4 @@
-import { BehaviorSubject, combineLatest, distinctUntilChanged, from, map, Observable, of, scan, share, Subject } from "rxjs";
+import { BehaviorSubject, distinctUntilChanged, from, map, scan, Subject } from "rxjs";
 import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
 import { DataWithAction, makeScanFromReducer, Reducer } from "../Reducer";
@@ -6,11 +6,15 @@ import { commit } from "../store/commit";
 
 const InitialActionId = Symbol('INITIAL_ACTION')
 const UpdateSingleBeginActionId = Symbol('UPDATE_SINGLE_BEGIN_ACTION');
-const UpdateSingleEndActionId = Symbol('UPDATE_SINGLE_END_ACTION');
+const UpdateSingleCommitActionId = Symbol('UPDATE_SINGLE_COMMIT_ACTION');
+const UpdateSingleCompleteActionId = Symbol('UPDATE_SINGLE_COMPLETE_ACTION');
+const UpdateSingleFailActionId = Symbol('UPDATE_SINGLE_FAIL_ACTION');
 
 type InitialAction = IBaseAction<typeof InitialActionId>;
 type UpdateSingleBeginAction<TItem> = IBaseAction<typeof UpdateSingleBeginActionId, { changedItem: TItem }>;
-type UpdateSingleEndAction<TItem> = IBaseAction<typeof UpdateSingleEndActionId, { updatedItem: TItem }>;
+type UpdateSingleCommitAction<TItem> = IBaseAction<typeof UpdateSingleCommitActionId, { changedItem: BehaviorSubject<TItem> }>;
+type UpdateSingleCompleteAction<TItem> = IBaseAction<typeof UpdateSingleCompleteActionId, { updatedItem: TItem }>;
+type UpdateSingleFailAction<TItem, TError> = IBaseAction<typeof UpdateSingleFailActionId, { changedItem: TItem, error: TError }>;
 
 export interface IUpdateSingleArgs<TItem> {
     topicId: Id,
@@ -27,9 +31,9 @@ export const updateItem = <TItem>({
     actions$,
     request,
 }: IUpdateSingleArgs<TItem>): void => {
-    const initialData: Subject<TItem>[] = [];
+    const initialData: BehaviorSubject<TItem>[] = [];
 
-    const initial: DataWithAction<Subject<TItem>[], InitialAction> = {
+    const initial: DataWithAction<BehaviorSubject<TItem>[], InitialAction> = {
         data: initialData,
         action: {
             topicId: topicId,
@@ -38,9 +42,19 @@ export const updateItem = <TItem>({
         },
     }
 
-    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isUpdateSingleEndAction<TItem>(action)) {
-            return commit({ updated: [action.payload.updatedItem], accessor })
+    const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
+        if (isUpdateSingleCompleteAction<TItem>(action)) {
+            const result = commit({ updated: [action.payload.updatedItem], accessor });
+
+            const commitAction: UpdateSingleCommitAction<TItem> = {
+                topicId,
+                actionId: UpdateSingleCommitActionId,
+                payload: { changedItem: result[0] as BehaviorSubject<TItem> }
+            }
+
+            actions$.next(commitAction);
+
+            return result
         }
 
         return prev.data;
@@ -52,6 +66,8 @@ export const updateItem = <TItem>({
         distinctUntilChanged(({ data: prevData }, { data: nextData }) => prevData === nextData),
     )
 
+    result$.subscribe();
+
     const beginAction: UpdateSingleBeginAction<TItem> = {
         topicId,
         actionId: UpdateSingleBeginActionId,
@@ -60,22 +76,40 @@ export const updateItem = <TItem>({
 
     actions$.next(beginAction);
 
-    from(request(changedItem))
-        .subscribe((updatedItem) => {
-            const endAction: UpdateSingleEndAction<TItem> = {
+    from(request(changedItem)).subscribe({
+        next: (updatedItem) => {
+            const completeAction: UpdateSingleCompleteAction<TItem> = {
                 topicId,
-                actionId: UpdateSingleEndActionId,
+                actionId: UpdateSingleCompleteActionId,
                 payload: { updatedItem }
             }
 
-            actions$.next(endAction);
-        })
+            actions$.next(completeAction);
+        },
+        error: (error) => {
+            const failAction: UpdateSingleFailAction<TItem, typeof error> = {
+                topicId,
+                actionId: UpdateSingleFailActionId,
+                payload: { changedItem, error }
+            }
+
+            actions$.next(failAction);
+        }
+    })
 }
 
 export const isUpdateSingleBeginAction = <TItem>(action: IBaseAction): action is UpdateSingleBeginAction<TItem> => {
     return action.actionId === UpdateSingleBeginActionId
 }
 
-export const isUpdateSingleEndAction = <TItem>(action: IBaseAction): action is UpdateSingleEndAction<TItem> => {
-    return action.actionId === UpdateSingleEndActionId
+export const isUpdateSingleCommitAction = <TItem>(action: IBaseAction): action is UpdateSingleCommitAction<TItem> => {
+    return action.actionId === UpdateSingleCommitActionId
+}
+
+export const isUpdateSingleCompleteAction = <TItem>(action: IBaseAction): action is UpdateSingleCompleteAction<TItem> => {
+    return action.actionId === UpdateSingleCompleteActionId
+}
+
+export const isUpdateSingleFailAction = <TItem, TError>(action: IBaseAction): action is UpdateSingleFailAction<TItem, TError> => {
+    return action.actionId === UpdateSingleFailActionId
 }

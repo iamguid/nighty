@@ -1,4 +1,4 @@
-import { combineLatest, distinctUntilChanged, from, map, Observable, of, scan, Subject } from "rxjs";
+import { BehaviorSubject, distinctUntilChanged, from, map, Observable, scan, Subject } from "rxjs";
 import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
 import { DataWithAction, Reducer, makeScanFromReducer } from "../Reducer";
@@ -6,11 +6,13 @@ import { commit } from "../store/commit";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadSingleBeginActionId = Symbol('LOAD_SINGLE_BEGIN_ACTION')
-export const LoadSingleEndActionId = Symbol('LOAD_SINGLE_END_ACTION')
+export const LoadSingleCompleteActionId = Symbol('LOAD_SINGLE_COMPLETE_ACTION')
+export const LoadSingleFailActionId = Symbol('LOAD_SINGLE_FAIL_ACTION')
 
 type InitialAction = IBaseAction<typeof InitialActionId>
 type LoadSingleBeginAction = IBaseAction<typeof LoadSingleBeginActionId, { itemId: string }>
-type LoadSingleEndAction<TItem> = IBaseAction<typeof LoadSingleEndActionId, { item: TItem }>
+type LoadSingleCompleteAction<TItem> = IBaseAction<typeof LoadSingleCompleteActionId, { item: TItem }>
+type LoadSingleFailAction<TError> = IBaseAction<typeof LoadSingleFailActionId, { itemId: string, error: TError }>
 
 export interface ILoadSingleArgs<TItem> {
     topicId: Id,
@@ -26,10 +28,10 @@ export const loadSingle = <TItem>({
     id,
     actions$,
     request,
-}: ILoadSingleArgs<TItem>): Observable<Subject<TItem> | null> => {
-    const initialData: Subject<TItem>[] = [];
+}: ILoadSingleArgs<TItem>): Observable<BehaviorSubject<TItem> | null> => {
+    const initialData: BehaviorSubject<TItem>[] = [];
 
-    const initial: DataWithAction<Subject<TItem>[], InitialAction> = {
+    const initial: DataWithAction<BehaviorSubject<TItem>[], InitialAction> = {
         data: initialData,
         action: {
             topicId,
@@ -38,8 +40,8 @@ export const loadSingle = <TItem>({
         },
     }
 
-    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isLoadSingleEndAction<TItem>(action) && action.topicId === topicId) {
+    const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
+        if (isLoadSingleCompleteAction<TItem>(action) && action.topicId === topicId) {
             return commit({ updated: [action.payload.item], accessor });
         }
 
@@ -62,14 +64,25 @@ export const loadSingle = <TItem>({
     actions$.next(beginAction);
 
     from(request(id))
-        .subscribe((item) => {
-            const endAction: LoadSingleEndAction<TItem> = {
-                topicId,
-                actionId: LoadSingleEndActionId,
-                payload: { item }
-            }
+        .subscribe({
+            next: (item) => {
+                const endAction: LoadSingleCompleteAction<TItem> = {
+                    topicId,
+                    actionId: LoadSingleCompleteActionId,
+                    payload: { item }
+                }
 
-            actions$.next(endAction);
+                actions$.next(endAction);
+            },
+            error: (error) => {
+                const failAction: LoadSingleFailAction<typeof error> = {
+                    topicId,
+                    actionId: LoadSingleFailActionId,
+                    payload: { itemId: id, error }
+                }
+
+                actions$.next(failAction);
+            }
         })
 
     return result$;
@@ -79,6 +92,10 @@ export const isLoadSingleBeginAction = (action: IBaseAction): action is LoadSing
     return action.actionId === LoadSingleBeginActionId
 }
 
-export const isLoadSingleEndAction = <TItem>(action: IBaseAction): action is LoadSingleEndAction<TItem> => {
-    return action.actionId === LoadSingleEndActionId
+export const isLoadSingleCompleteAction = <TItem>(action: IBaseAction): action is LoadSingleCompleteAction<TItem> => {
+    return action.actionId === LoadSingleCompleteActionId
+}
+
+export const isLoadSingleFailAction = <TItem>(action: IBaseAction): action is LoadSingleFailAction<TItem> => {
+    return action.actionId === LoadSingleCompleteActionId
 }

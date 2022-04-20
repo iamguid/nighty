@@ -1,4 +1,4 @@
-import { distinctUntilChanged, from, map, Observable, scan, Subject } from "rxjs";
+import { BehaviorSubject, distinctUntilChanged, from, map, Observable, scan, Subject } from "rxjs";
 import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
 import { commit } from "../store/commit";
@@ -7,11 +7,13 @@ import { isAddSingleCommitAction } from "./addSingle";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadAllBeginActionId = Symbol('LOAD_ALL_BEGIN_ACTION')
-export const LoadAllEndActionId = Symbol('LOAD_ALL_END_ACTION')
+export const LoadAllCompleteActionId = Symbol('LOAD_ALL_COMPLETE_ACTION')
+export const LoadAllFailActionId = Symbol('LOAD_ALL_FAIL_ACTION')
 
 export type InitialAction = IBaseAction<typeof InitialActionId>
 export type LoadAllBeginAction = IBaseAction<typeof LoadAllBeginActionId>
-export type LoadAllEndAction<TItem> = IBaseAction<typeof LoadAllEndActionId, { items: TItem[] }>
+export type LoadAllCompleteAction<TItem> = IBaseAction<typeof LoadAllCompleteActionId, { items: TItem[] }>
+export type LoadAllFailAction<TError> = IBaseAction<typeof LoadAllFailActionId, { error: TError }>
 
 export interface ILoadAllArgs<TItem> {
     topicId: Id,
@@ -26,9 +28,9 @@ export const loadAll = <TItem>({
     actions$,
     request,
 }: ILoadAllArgs<TItem>): Observable<Observable<TItem>[]> => {
-    const initialData: Subject<TItem>[] = [];
+    const initialData: BehaviorSubject<TItem>[] = [];
 
-    const initial: DataWithAction<Subject<TItem>[], InitialAction> = {
+    const initial: DataWithAction<BehaviorSubject<TItem>[], InitialAction> = {
         data: initialData,
         action: {
             topicId,
@@ -37,8 +39,8 @@ export const loadAll = <TItem>({
         },
     }
 
-    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, action) => {
-        if (isLoadAllEndAction<TItem>(action)) {
+    const reducer: Reducer<BehaviorSubject<TItem>[], IBaseAction> = (prev, action) => {
+        if (isLoadAllCompleteAction<TItem>(action)) {
             return commit({ updated: action.payload.items, accessor });
         }
 
@@ -64,14 +66,25 @@ export const loadAll = <TItem>({
     actions$.next(beginAction);
 
     from(request())
-        .subscribe((items) => {
-            const endAction: LoadAllEndAction<TItem> = {
-                topicId,
-                actionId: LoadAllEndActionId,
-                payload: { items },
-            }
+        .subscribe({
+            next: (items) => {
+                const endAction: LoadAllCompleteAction<TItem> = {
+                    topicId,
+                    actionId: LoadAllCompleteActionId,
+                    payload: { items },
+                }
 
-            actions$.next(endAction);
+                actions$.next(endAction);
+            },
+            error: (error) => {
+                const failAction: LoadAllFailAction<typeof error> = {
+                    topicId,
+                    actionId: LoadAllFailActionId,
+                    payload: { error },
+                }
+
+                actions$.next(failAction);
+            },
         })
 
     return result$;
@@ -81,6 +94,10 @@ export const isLoadAllBeginAction = (action: IBaseAction): action is LoadAllBegi
     return action.actionId === LoadAllBeginActionId
 }
 
-export const isLoadAllEndAction = <TItem>(action: IBaseAction): action is LoadAllEndAction<TItem> => {
-    return action.actionId === LoadAllEndActionId
+export const isLoadAllCompleteAction = <TItem>(action: IBaseAction): action is LoadAllCompleteAction<TItem> => {
+    return action.actionId === LoadAllCompleteActionId
+}
+
+export const isLoadAllFailAction = <TItem>(action: IBaseAction): action is LoadAllFailAction<TItem> => {
+    return action.actionId === LoadAllFailActionId
 }

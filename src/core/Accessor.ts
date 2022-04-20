@@ -1,8 +1,8 @@
-import { Subject } from "rxjs";
+import { BehaviorSubject } from "rxjs";
 
 export type ItemIdGetter<TItem> = (item: TItem) => string;
-export type ItemGetter<TItem> = (id: string) => Subject<TItem> | null;
-export type ItemSetter<TItem> = (id: string, item: Subject<TItem>) => void;
+export type ItemGetter<TItem> = (id: string) => BehaviorSubject<TItem> | null;
+export type ItemSetter<TItem> = (id: string, item: BehaviorSubject<TItem>) => void;
 export type ItemDeleter = (id: string) => void;
 
 export interface IAccessor<TItem> {

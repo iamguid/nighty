@@ -1,4 +1,4 @@
-import { distinctUntilChanged, map, Observable, Subject } from "rxjs";
+import { BehaviorSubject, distinctUntilChanged, map, Observable, Subject } from "rxjs";
 import { TodoApi } from "../api/TodoApi";
 import { ITodoModel } from "../models/TodoModel";
 import { IBaseAction } from "../core/IBaseAction";
@@ -52,12 +52,12 @@ export class TodoService {
         return [paginator$, result$]
     }
 
-    // public getOnlyDoneTodos(): Observable<Observable<ITodoModel>[]> {
-    //     return this.getAllTodos().pipe(
-    //         map(data => data.filter(todo => todo)),
-    //         distinctUntilChanged(({ data: prevData }, { data: nextData }) => prevData === nextData),
-    //     )
-    // }
+    public getOnlyDoneTodos(): Observable<Observable<ITodoModel>[]> {
+        return this.getAllTodos().pipe(
+            map(data => data.filter(todo => (todo as BehaviorSubject<ITodoModel>).value.done)),
+            distinctUntilChanged(),
+        )
+    }
 
     public getTodoById(id: string): Observable<Observable<ITodoModel> | null> {
         return loadSingle({

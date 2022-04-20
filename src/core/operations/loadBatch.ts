@@ -1,10 +1,8 @@
-import { combineLatest, distinctUntilChanged, from, map, Observable, of, scan, Subject } from "rxjs";
+import { distinctUntilChanged, from, map, Observable, scan, Subject } from "rxjs";
 import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
 import { commit } from "../store/commit";
 import { DataWithAction, Reducer, makeScanFromReducer } from "../Reducer";
-import { isAddSingleEndAction } from "./addSingle";
-import { append } from "../store/append";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadBatchBeginActionId = Symbol('LOAD_BATCH_BEGIN_ACTION')
@@ -40,21 +38,15 @@ export const loadBatch = <TItem>({
         },
     }
 
-    const dataWithAction$: Observable<[Subject<TItem>[], IBaseAction]> = combineLatest([
-        of(initialData),
-        actions$,
-    ]);
-
-    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, { data, action }) => {
+    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, action) => {
         if (isLoadBatchEndAction<TItem>(action) && action.topicId === topicId) {
             return commit({ updated: action.payload.items, accessor });
         }
 
-        return data
+        return prev.data
     }
 
-    const result$ = dataWithAction$.pipe(
-        map(([data, action]) => ({ data, action })),
+    const result$ = actions$.pipe(
         scan(makeScanFromReducer(reducer), initial),
         distinctUntilChanged((prev, next) => prev.data === next.data),
         map(({ data, action }) => data),

@@ -7,10 +7,12 @@ import { commit } from "../store/commit";
 const InitialActionId = Symbol('INITIAL_ACTION')
 const AddSingleBeginActionId = Symbol('ADD_SINGLE_BEGIN_ACTION');
 const AddSingleEndActionId = Symbol('ADD_SINGLE_END_ACTION');
+const AddSingleCommitActionId = Symbol('ADD_SINGLE_COMMIT_ACTION');
 
 type InitialAction = IBaseAction<typeof InitialActionId>;
 type AddSingleBeginAction<TItem> = IBaseAction<typeof AddSingleBeginActionId, { changedItem: TItem }>
 type AddSingleEndAction<TItem> = IBaseAction<typeof AddSingleEndActionId, { updatedItem: TItem }>
+type AddSingleCommitAction<TItem> = IBaseAction<typeof AddSingleCommitActionId, { updatedItem: Subject<TItem> }>
 
 export interface IAddSingleArgs<TItem> {
     topicId: Id,
@@ -38,26 +40,31 @@ export const addSingle = <TItem>({
         },
     }
 
-    const dataWithAction$: Observable<[Subject<TItem>[], IBaseAction]> = combineLatest([
-        of(initialData),
-        actions$,
-    ]);
-
-    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, { data, action }) => {
+    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, action) => {
         if (isAddSingleEndAction<TItem>(action)) {
-            return commit({ updated: [action.payload.updatedItem], accessor })
+            const result = commit({ updated: [action.payload.updatedItem], accessor });
+
+            const commitAction: AddSingleCommitAction<TItem> = {
+                topicId,
+                actionId: AddSingleCommitActionId,
+                payload: { updatedItem: result[0] }
+            }
+
+            actions$.next(commitAction);
+
+            return result;
         }
 
-        return data;
+        return prev.data;
     }
 
-    const result$ = dataWithAction$.pipe(
-        share(),
-        map(([ data, action ]) => ({ data, action })),
+    const result$ = actions$.pipe(
         scan(makeScanFromReducer(reducer), initial),
         map(({ data, action }) => ({ data: data[0] || null, action })),
         distinctUntilChanged(({ data: prevData }, { data: nextData }) => prevData === nextData),
     )
+
+    result$.subscribe();
 
     const beginAction: AddSingleBeginAction<TItem> = {
         topicId,
@@ -85,4 +92,8 @@ export const isAddSingleBeginAction = <TItem>(action: IBaseAction): action is Ad
 
 export const isAddSingleEndAction = <TItem>(action: IBaseAction): action is AddSingleEndAction<TItem> => {
     return action.actionId === AddSingleEndActionId
+}
+
+export const isAddSingleCommitAction = <TItem>(action: IBaseAction): action is AddSingleCommitAction<TItem> => {
+    return action.actionId === AddSingleCommitActionId
 }

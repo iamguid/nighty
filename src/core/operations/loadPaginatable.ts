@@ -51,9 +51,9 @@ export const loadPaginatable = <TItem>({
         actions$,
     ]);
 
-    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, { data, action }) => {
+    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, action) => {
         if (isLoadPageEndAction<TItem>(action)) {
-            return [...data, ...commit({ updated: action.payload.items, accessor })];
+            return [...prev.data, ...commit({ updated: action.payload.items, accessor })];
         }
 
         if (isAddSingleBeginAction<TItem>(action)) {
@@ -64,11 +64,10 @@ export const loadPaginatable = <TItem>({
             paginator$.next();
         }
 
-        return data;
+        return prev.data;
     }
 
-    const reducer$ = dataWithAction$.pipe(
-        map(([data, action]) => ({ data, action })),
+    const reducer$ = actions$.pipe(
         scan(makeScanFromReducer(reducer), initial),
         distinctUntilChanged((prev, next) => prev.data === next.data),
         map(({ data, action }) => data),

@@ -38,22 +38,15 @@ export const softDeleteItem = <TItem>({
         },
     }
 
-    const dataWithAction$: Observable<[Subject<TItem>[], IBaseAction]> = combineLatest([
-        of(initialData),
-        actions$,
-    ]);
-
-    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, { data, action }) => {
+    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, action) => {
         if (isSoftDeleteSingleEndAction<TItem>(action)) {
             return commit({ updated: [action.payload.updatedItem], accessor })
         }
 
-        return data;
+        return prev.data;
     }
 
-    const result$ = dataWithAction$.pipe(
-        share(),
-        map(([ data, action ]) => ({ data, action })),
+    const result$ = actions$.pipe(
         scan(makeScanFromReducer(reducer), initial),
         map(({ data, action }) => ({ data: data[0] || null, action })),
         distinctUntilChanged(({ data: prevData }, { data: nextData }) => prevData === nextData),

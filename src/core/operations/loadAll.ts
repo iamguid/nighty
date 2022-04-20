@@ -1,14 +1,9 @@
-import { combineLatest, distinctUntilChanged, from, map, Observable, of, scan, skipWhile, Subject } from "rxjs";
+import { distinctUntilChanged, from, map, Observable, scan, Subject } from "rxjs";
 import { IAccessor } from "../Accessor";
 import { IBaseAction, Id } from "../IBaseAction";
 import { commit } from "../store/commit";
 import { DataWithAction, Reducer, makeScanFromReducer } from "../Reducer";
-import { isAddSingleEndAction } from "./addSingle";
-import { isLoadBatchEndAction } from "./loadBatch";
-import { isLoadPageEndAction } from "./loadPaginatable";
-import { isSoftDeleteSingleEndAction } from "./softDeleteSingle";
-import { isUpdateSingleEndAction, updateItem } from "./updateSingle";
-import { append } from "../store/append";
+import { isAddSingleCommitAction } from "./addSingle";
 
 export const InitialActionId = Symbol('INITIAL_ACTION')
 export const LoadAllBeginActionId = Symbol('LOAD_ALL_BEGIN_ACTION')
@@ -42,25 +37,19 @@ export const loadAll = <TItem>({
         },
     }
 
-    const dataWithAction$: Observable<[Subject<TItem>[], IBaseAction]> = combineLatest([
-        of(initialData),
-        actions$,
-    ]);
-
-    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, { data, action }) => {
+    const reducer: Reducer<Subject<TItem>[], IBaseAction> = (prev, action) => {
         if (isLoadAllEndAction<TItem>(action)) {
             return commit({ updated: action.payload.items, accessor });
         }
 
-        if (isAddSingleEndAction<TItem>(action)) {
-            return append({ target: data, append: [action.payload.updatedItem], accessor });
+        if (isAddSingleCommitAction<TItem>(action)) {
+            return [ ...prev.data, action.payload.updatedItem ];
         }
 
-        return data
+        return prev.data
     }
 
-    const result$ = dataWithAction$.pipe(
-        map(([data, action]) => ({ data, action })),
+    const result$ = actions$.pipe(
         scan(makeScanFromReducer(reducer), initial),
         distinctUntilChanged((prev, next) => prev.data === next.data),
         map(({ data, action }) => data),

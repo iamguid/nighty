@@ -13,7 +13,7 @@ import { hardDeleteItem } from "../core/operations/hardDeleteSingle";
 
 export class TodoService {
     private todoApi: TodoApi;
-    private store: Map<string, BehaviorSubject<ITodoModel>> = new Map(); // key - todoId
+    private store: Map<string, WeakRef<BehaviorSubject<ITodoModel>>> = new Map(); // key - todoId
     private _actions$: Subject<IBaseAction<any, any>> = new Subject();
     private accessor: IAccessor<ITodoModel>;
 
@@ -118,11 +118,12 @@ export class TodoService {
     }
 
     private todoGetter = (id: string): BehaviorSubject<ITodoModel> | null => {
-        return this.store.get(id) || null;
+        return this.store.get(id)?.deref() || null;
     }
 
     private todoSetter = (id: string, todo: BehaviorSubject<ITodoModel>): void => {
-        this.store.set(id, todo);
+        const weakRef = new WeakRef(todo);
+        this.store.set(id, weakRef);
     }
 
     private todoDeleter = (id: string): void => {

@@ -1,4 +1,4 @@
-import { BehaviorSubject, distinctUntilChanged, map, Observable, Subject } from "rxjs";
+import { BehaviorSubject, distinctUntilChanged, map, Observable, Subject, tap } from "rxjs";
 import { TodoApi } from "../api/TodoApi";
 import { ITodoModel } from "../models/TodoModel";
 import { IBaseAction } from "../core/IBaseAction";
@@ -14,6 +14,7 @@ import { hardDeleteItem } from "../core/operations/hardDeleteSingle";
 export class TodoService {
     private todoApi: TodoApi;
     private store: Map<string, WeakRef<BehaviorSubject<ITodoModel>>> = new Map(); // key - todoId
+    private pollerTimerId: number | null = null;
     private _actions$: Subject<IBaseAction<any, any>> = new Subject();
     private accessor: IAccessor<ITodoModel>;
 
@@ -25,6 +26,19 @@ export class TodoService {
             get: this.todoGetter,
             set: this.todoSetter,
             delete: this.todoDeleter,
+        }
+    }
+
+    public startPoll() {
+        if (this.pollerTimerId === null) {
+            this.pollerTimerId = window.setInterval(this.poll, 3000)
+        }
+    }
+
+    public stopPoll() {
+        if (this.pollerTimerId !== null) {
+            clearInterval(this.pollerTimerId);
+            this.pollerTimerId = null;
         }
     }
 
@@ -128,5 +142,27 @@ export class TodoService {
 
     private todoDeleter = (id: string): void => {
         this.store.delete(id);
+    }
+
+    private poll = async () => {
+        const todosIds: string[] = [];
+
+        for (const wrappedTodo of Array.from(this.store.values())) {
+            const todo = wrappedTodo.deref();
+
+            if (todo) {
+                todosIds.push(todo.value.id!)
+            }
+        }
+
+        const todos = await this.todoApi.getTodosByIds(todosIds);
+
+        for (const todo of todos) {
+            const wrappedTodo = this.store.get(todo.id!)?.deref();
+
+            if (wrappedTodo) {
+                wrappedTodo.next(todo);
+            }
+        }
     }
 }

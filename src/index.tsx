@@ -18,6 +18,8 @@ const allTodos$ = todoService.getAllTodos();
 const onlyDoneTodos$ = todoService.getOnlyDoneTodos();
 const firstTodo$ = todoService.getTodoById('1');
 
+todoService.startPoll();
+
 allTodos$.subscribe(todos => {
   console.info('allTodos$ updated', todos)
 

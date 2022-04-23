@@ -29,6 +29,16 @@ export class TodoApi {
         });
     }
 
+    public getTodosByIds = (ids: string[]): Promise<ITodoModel[]> => {
+        console.log('[TODO_API] getTodosByIds request', ids)
+        return new Promise((resolve, reject) => {
+            setTimeout(() => {
+                resolve(Array.from(this.todos.values()).filter(todo => ids.includes(todo.id!)));
+                console.log('[TODO_API] getTodosByIds response', ids)
+            }, 1000);
+        });
+    }
+
     public updateTodo = (todo: ITodoModel): Promise<ITodoModel> => {
         console.log('[TODO_API] updateTodo request', todo);
         return new Promise((resolve, reject) => {
